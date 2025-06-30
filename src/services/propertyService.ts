@@ -120,11 +120,16 @@ const defaultLocationLifestyle = {
 
 // Function to get mock property data based on propertyId
 const getMockPropertyData = (propertyId: string): PropertyData => {
+  const baseData = {
+    ...mockPropertyApiData,
+    ...defaultLocationLifestyle
+  };
+  
   switch (propertyId) {
     case "1":
-      return mockPropertyApiData;
+      return baseData;
     default:
-      return mockPropertyApiData;
+      return baseData;
   }
 };
 
