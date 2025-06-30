@@ -1,4 +1,6 @@
 
+import { supabase } from "@/integrations/supabase/client";
+
 // Mock API service to simulate fetching property data
 // In a real application, this would make actual API calls
 
@@ -36,8 +38,8 @@ export interface PropertyData {
   };
 }
 
-// Mock data that simulates API response
-const mockPropertyData: PropertyData = {
+// Mock data that simulates API response (excluding location and lifestyle)
+const mockPropertyApiData = {
   id: "1",
   address: "36 Tweedale Street, Graceville",
   suburb: "Graceville",
@@ -83,6 +85,15 @@ const mockPropertyData: PropertyData = {
     "Side access to single remote garage with power, lighting and storage space",
     "Rinnai hot water system; laundry with 2nd toilet"
   ],
+  agent: {
+    name: "Charles Wiggett",
+    agency: "Hauss Realty",
+    applyUrl: "https://www.hauss.com.au/expression-of-interest/"
+  }
+};
+
+// Default fallback data for location and lifestyle
+const defaultLocationLifestyle = {
   locationInfo: "Embrace the vibrant and welcoming way of life that Graceville has to offer. Take a stroll to your choice of lush greenspaces including the ever-popular Graceville Riverside Parklands. Local schools are an easy walk or cycle from your door and St Aidan's Anglican Girls' School and Christ the King Primary are both a short drive away. This central address also places you just moments from a diverse selection of restaurant, cafes and boutique shopping with major retailers at Indooroopilly Shopping Centre less than 4km from home.",
   lifestyle: [
     {
@@ -105,12 +116,7 @@ const mockPropertyData: PropertyData = {
       title: "Sports Club",
       description: "Western Suburbs District Cricket Club - Local cricket and community"
     }
-  ],
-  agent: {
-    name: "Charles Wiggett",
-    agency: "Hauss Realty",
-    applyUrl: "https://www.hauss.com.au/expression-of-interest/"
-  }
+  ]
 };
 
 export const fetchPropertyData = async (id: string): Promise<PropertyData> => {
@@ -119,27 +125,58 @@ export const fetchPropertyData = async (id: string): Promise<PropertyData> => {
   
   console.log(`Fetching property data for ID: ${id}`);
   
-  // In a real application, this would fetch from your API
-  // For now, return mock data regardless of ID
-  return mockPropertyData;
+  try {
+    // Fetch Location & Lifestyle data from Supabase
+    const { data: propertyData, error } = await supabase
+      .from('properties')
+      .select('location_info, lifestyle')
+      .eq('property_id', id)
+      .maybeSingle();
+    
+    if (error) {
+      console.error('Error fetching property data from Supabase:', error);
+    }
+    
+    // Combine mock API data with Supabase data
+    const locationInfo = propertyData?.location_info || defaultLocationLifestyle.locationInfo;
+    const lifestyle = propertyData?.lifestyle || defaultLocationLifestyle.lifestyle;
+    
+    return {
+      ...mockPropertyApiData,
+      locationInfo,
+      lifestyle
+    };
+  } catch (error) {
+    console.error('Error in fetchPropertyData:', error);
+    // Return mock data with defaults if there's an error
+    return {
+      ...mockPropertyApiData,
+      ...defaultLocationLifestyle
+    };
+  }
 };
 
-// This function would integrate with Supabase to fetch Location & Lifestyle data
-export const fetchSupabaseData = async (propertyId: string) => {
-  // This is where you would connect to Supabase
-  // For now, returning mock data
-  console.log(`Would fetch Supabase data for property: ${propertyId}`);
-  
-  return {
-    location: {
-      suburb: "Graceville",
-      postcode: "QLD 4075"
-    },
-    lifestyle: [
-      {
-        title: "Local Park",
-        description: "Sherwood Arboretum - Beautiful green space"
-      }
-    ]
-  };
+// Function to seed the database with sample data (for testing)
+export const seedPropertyData = async (propertyId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('properties')
+      .upsert({
+        property_id: propertyId,
+        location_info: defaultLocationLifestyle.locationInfo,
+        lifestyle: defaultLocationLifestyle.lifestyle
+      })
+      .select();
+    
+    if (error) {
+      console.error('Error seeding property data:', error);
+      return false;
+    }
+    
+    console.log('Property data seeded successfully:', data);
+    return true;
+  } catch (error) {
+    console.error('Error in seedPropertyData:', error);
+    return false;
+  }
 };

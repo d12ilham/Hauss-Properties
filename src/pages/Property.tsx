@@ -11,16 +11,38 @@ import PropertyFeatures from '../components/PropertyFeatures';
 import LocationInfo from '../components/LocationInfo';
 import LifestyleSection from '../components/LifestyleSection';
 import AgentSection from '../components/AgentSection';
-import { fetchPropertyData } from '../services/propertyService';
+import { fetchPropertyData, seedPropertyData } from '../services/propertyService';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
 const Property = () => {
   const { id } = useParams<{ id: string }>();
+  const { toast } = useToast();
   
-  const { data: property, isLoading, error } = useQuery({
+  const { data: property, isLoading, error, refetch } = useQuery({
     queryKey: ['property', id],
     queryFn: () => fetchPropertyData(id!),
     enabled: !!id,
   });
+
+  const handleSeedData = async () => {
+    if (!id) return;
+    
+    const success = await seedPropertyData(id);
+    if (success) {
+      toast({
+        title: "Success",
+        description: "Property data has been seeded to Supabase database",
+      });
+      refetch(); // Refetch the property data to show the updated info
+    } else {
+      toast({
+        title: "Error",
+        description: "Failed to seed property data",
+        variant: "destructive",
+      });
+    }
+  };
 
   if (isLoading) {
     return (
@@ -44,6 +66,12 @@ const Property = () => {
         <PropertyHeader property={property} />
         
         <div className="bg-white rounded-lg shadow-sm mb-5 p-8">
+          <div className="mb-4 flex justify-end">
+            <Button onClick={handleSeedData} variant="outline" size="sm">
+              Seed Database with Sample Data
+            </Button>
+          </div>
+          
           <PropertyImages images={property.images} />
           <PropertySpecs specs={property.specs} />
           <PropertyDocuments documents={property.documents} />
