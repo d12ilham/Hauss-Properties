@@ -11,14 +11,21 @@ const Index = () => {
         
         <div className="space-y-4">
           <Link
-            to="/property/1"
+            to="/auth"
             className="block bg-orange-400 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-orange-500 transition-colors duration-300 no-underline"
+          >
+            Login to Dashboard
+          </Link>
+          
+          <Link
+            to="/property/1"
+            className="block bg-blue-400 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-500 transition-colors duration-300 no-underline"
           >
             View Sample Property
           </Link>
           
           <p className="text-gray-500 text-sm">
-            Connect to Supabase to manage properties and lifestyle data
+            Property pages are public, dashboard requires authentication
           </p>
         </div>
       </div>

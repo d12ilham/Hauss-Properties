@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Mock API service to simulate fetching property data
@@ -119,40 +118,57 @@ const defaultLocationLifestyle = {
   ]
 };
 
-export const fetchPropertyData = async (id: string): Promise<PropertyData> => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 500));
-  
-  console.log(`Fetching property data for ID: ${id}`);
+// Function to get mock property data based on propertyId
+const getMockPropertyData = (propertyId: string): PropertyData => {
+  switch (propertyId) {
+    case "1":
+      return mockPropertyApiData;
+    default:
+      return mockPropertyApiData;
+  }
+};
+
+export const fetchPropertyData = async (propertyId: string) => {
+  console.log('Fetching property data for ID:', propertyId);
   
   try {
-    // Fetch Location & Lifestyle data from Supabase
-    const { data: propertyData, error } = await supabase
+    // Try to fetch from Supabase first
+    const { data, error } = await supabase
       .from('properties')
-      .select('location_info, lifestyle')
-      .eq('property_id', id)
-      .maybeSingle();
-    
-    if (error) {
-      console.error('Error fetching property data from Supabase:', error);
+      .select('*')
+      .eq('property_id', propertyId)
+      .single();
+
+    if (error && error.code !== 'PGRST116') { // PGRST116 is "not found" error
+      console.error('Supabase fetch error:', error);
     }
-    
-    // Combine mock API data with Supabase data
-    const locationInfo = propertyData?.location_info || defaultLocationLifestyle.locationInfo;
-    const lifestyle = propertyData?.lifestyle || defaultLocationLifestyle.lifestyle;
-    
-    return {
-      ...mockPropertyApiData,
-      locationInfo,
-      lifestyle
-    };
+
+    // Get the mock property data
+    const mockProperty = getMockPropertyData(propertyId);
+
+    if (data) {
+      console.log('Found Supabase data:', data);
+      
+      // Merge Supabase data with mock data, prioritizing Supabase for location_info and lifestyle
+      const mergedProperty = {
+        ...mockProperty,
+        locationInfo: data.location_info || mockProperty.locationInfo,
+        lifestyle: Array.isArray(data.lifestyle) ? data.lifestyle as Array<{
+          image: string;
+          title: string;
+          description: string;
+        }> : mockProperty.lifestyle
+      };
+      
+      console.log('Merged property data:', mergedProperty);
+      return mergedProperty;
+    } else {
+      console.log('No Supabase data found, using mock data');
+      return mockProperty;
+    }
   } catch (error) {
-    console.error('Error in fetchPropertyData:', error);
-    // Return mock data with defaults if there's an error
-    return {
-      ...mockPropertyApiData,
-      ...defaultLocationLifestyle
-    };
+    console.error('Error fetching property data:', error);
+    return getMockPropertyData(propertyId);
   }
 };
 
