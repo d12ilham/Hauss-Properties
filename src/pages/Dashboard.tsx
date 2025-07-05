@@ -1,77 +1,65 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { apiService, Property } from '@/services/apiService';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-
-interface Property {
-  id: string;
-  address: string;
-  inspectionDate: string;
-  enabled: boolean;
-}
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [properties, setProperties] = useState<Property[]>([
-    { id: '1', address: '123 Oak Street, Melbourne VIC 3000', inspectionDate: 'June 25, 2025', enabled: true },
-    { id: '2', address: '456 Pine Avenue, Sydney NSW 2000', inspectionDate: 'July 2, 2025', enabled: false },
-    { id: '3', address: '789 Maple Road, Brisbane QLD 4000', inspectionDate: 'June 30, 2025', enabled: true },
-    { id: '4', address: '321 Cedar Lane, Perth WA 6000', inspectionDate: 'July 5, 2025', enabled: true },
-    { id: '5', address: '654 Birch Street, Adelaide SA 5000', inspectionDate: 'July 8, 2025', enabled: false },
-    { id: '6', address: '987 Elm Court, Hobart TAS 7000', inspectionDate: 'July 12, 2025', enabled: true },
-  ]);
+  const [properties, setProperties] = useState<Property[]>([]);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
     const checkAuth = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
+      if (!apiService.isAuthenticated()) {
         navigate('/auth');
         return;
       }
       
-      setUser(session.user);
-      setLoading(false);
+      const currentUser = apiService.getCurrentUser();
+      setUser(currentUser);
+      
+      try {
+        // Fetch properties from API
+        const fetchedProperties = await apiService.getAllProperties();
+        setProperties(fetchedProperties);
+      } catch (error) {
+        console.error('Error fetching properties:', error);
+        toast({
+          title: "Error",
+          description: "Failed to load properties",
+          variant: "destructive",
+        });
+      } finally {
+        setLoading(false);
+      }
     };
 
     checkAuth();
+  }, [navigate, toast]);
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      if (!session) {
-        navigate('/auth');
-      } else {
-        setUser(session.user);
-        setLoading(false);
-      }
-    });
-
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const handleLogout = () => {
+    apiService.logout();
     navigate('/');
   };
 
-  const downloadQR = (address: string) => {
-    const qrText = encodeURIComponent(`Property: ${address}`);
+  const downloadQR = (propertyName: string) => {
+    const qrText = encodeURIComponent(`Property: ${propertyName}`);
     const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${qrText}`;
     
     const link = document.createElement('a');
     link.href = qrUrl;
-    link.download = `QR_${address.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
+    link.download = `QR_${propertyName.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
     
     toast({
       title: "Success",
-      description: `QR code downloaded for ${address}`,
+      description: `QR code downloaded for ${propertyName}`,
     });
   };
 
@@ -95,17 +83,17 @@ const Dashboard = () => {
     input.click();
   };
 
-  const toggleStatus = (propertyId: string) => {
+  const toggleStatus = (propertyId: number) => {
     setProperties(prev => 
       prev.map(prop => 
         prop.id === propertyId 
-          ? { ...prop, enabled: !prop.enabled }
+          ? { ...prop, active: !prop.active }
           : prop
       )
     );
     
     const property = properties.find(p => p.id === propertyId);
-    const newStatus = !property?.enabled;
+    const newStatus = !property?.active;
     
     toast({
       title: "Status Updated",
@@ -142,65 +130,78 @@ const Dashboard = () => {
         </div>
         
         <div className="divide-y divide-black">
-          {properties.map((property) => (
-            <div 
-              key={property.id}
-              className="p-6 hover:bg-gray-50 transition-colors duration-300 flex items-center justify-between gap-5"
-            >
-              <div className="flex items-center gap-5 flex-1">
-                <div className="w-80">
-                  <h3 className="text-lg font-semibold text-black truncate">
-                    {property.address}
-                  </h3>
+          {properties.map((property) => {
+            const address = `${property.street_number} ${property.street}, ${property.suburb} ${property.state} ${property.postcode}`;
+            const nextInspection = property.inspection_times && property.inspection_times.length > 0 
+              ? property.inspection_times[0] 
+              : 'TBA';
+            
+            return (
+              <div 
+                key={property.id}
+                className="p-6 hover:bg-gray-50 transition-colors duration-300 flex items-center justify-between gap-5"
+              >
+                <div className="flex items-center gap-5 flex-1">
+                  <div className="w-80">
+                    <h3 className="text-lg font-semibold text-black truncate">
+                      {address}
+                    </h3>
+                  </div>
+                  <div className="w-48">
+                    <p className="text-black text-sm">
+                      Next Inspection: {nextInspection}
+                    </p>
+                  </div>
                 </div>
-                <div className="w-48">
-                  <p className="text-black text-sm">
-                    Next Inspection: {property.inspectionDate}
-                  </p>
+                
+                <div className="flex gap-3 w-96 justify-end">
+                  <Button
+                    onClick={() => downloadQR(property.property_name)}
+                    variant="outline"
+                    size="sm"
+                    className="border-black text-black hover:bg-black hover:text-white w-28"
+                  >
+                    Download QR
+                  </Button>
+                  
+                  <Button
+                    onClick={uploadDocument}
+                    variant="outline"
+                    size="sm"
+                    className="border-black text-black hover:bg-black hover:text-white w-32"
+                  >
+                    Add Location & Lifestyle
+                  </Button>
+                  
+                  <Button
+                    onClick={() => toggleStatus(property.id)}
+                    variant="outline"
+                    size="sm"
+                    className={`border-black w-24 transition-all ${
+                      property.active 
+                        ? 'bg-black text-white hover:bg-white hover:text-black' 
+                        : 'bg-white text-black hover:bg-black hover:text-white'
+                    }`}
+                  >
+                    <span className="flex items-center gap-1">
+                      <span 
+                        className={`w-2 h-2 rounded-full ${
+                          property.active ? 'bg-white' : 'bg-black border border-black'
+                        }`}
+                      />
+                      {property.active ? 'Enabled' : 'Disabled'}
+                    </span>
+                  </Button>
                 </div>
               </div>
-              
-              <div className="flex gap-3 w-96 justify-end">
-                <Button
-                  onClick={() => downloadQR(property.address)}
-                  variant="outline"
-                  size="sm"
-                  className="border-black text-black hover:bg-black hover:text-white w-28"
-                >
-                  Download QR
-                </Button>
-                
-                <Button
-                  onClick={uploadDocument}
-                  variant="outline"
-                  size="sm"
-                  className="border-black text-black hover:bg-black hover:text-white w-32"
-                >
-                  Add Location & Lifestyle
-                </Button>
-                
-                <Button
-                  onClick={() => toggleStatus(property.id)}
-                  variant="outline"
-                  size="sm"
-                  className={`border-black w-24 transition-all ${
-                    property.enabled 
-                      ? 'bg-black text-white hover:bg-white hover:text-black' 
-                      : 'bg-white text-black hover:bg-black hover:text-white'
-                  }`}
-                >
-                  <span className="flex items-center gap-1">
-                    <span 
-                      className={`w-2 h-2 rounded-full ${
-                        property.enabled ? 'bg-white' : 'bg-black border border-black'
-                      }`}
-                    />
-                    {property.enabled ? 'Enabled' : 'Disabled'}
-                  </span>
-                </Button>
-              </div>
+            );
+          })}
+          
+          {properties.length === 0 && (
+            <div className="p-6 text-center text-gray-500">
+              No properties found
             </div>
-          ))}
+          )}
         </div>
       </div>
     </div>
