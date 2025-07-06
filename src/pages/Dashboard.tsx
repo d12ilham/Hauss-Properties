@@ -1,9 +1,8 @@
-
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { apiService, Property } from '@/services/apiService';
-import { Button } from '@/components/ui/button';
-import { useToast } from '@/hooks/use-toast';
+import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { apiService, Property } from "@/services/apiService";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 const Dashboard = () => {
   const [user, setUser] = useState(null);
@@ -15,89 +14,109 @@ const Dashboard = () => {
   useEffect(() => {
     const checkAuth = async () => {
       if (!apiService.isAuthenticated()) {
-        navigate('/auth');
+        navigate("/auth");
         return;
       }
-      
+
       const currentUser = apiService.getCurrentUser();
       setUser(currentUser);
-      
+
       try {
-        // Fetch properties from API
         const fetchedProperties = await apiService.getAllProperties();
+        console.log("fetchedProperties", fetchedProperties);
         setProperties(fetchedProperties);
       } catch (error) {
-        console.error('Error fetching properties:', error);
-        toast({
-          title: "Error",
-          description: "Failed to load properties",
-          variant: "destructive",
-        });
+        console.error("Failed to fetch properties", error);
+        toast({ title: "Error fetching properties" });
       } finally {
         setLoading(false);
       }
     };
 
     checkAuth();
-  }, [navigate, toast]);
+  }, []);
 
   const handleLogout = () => {
     apiService.logout();
-    navigate('/');
+    navigate("/");
   };
 
-  const downloadQR = (propertyName: string) => {
-    const qrText = encodeURIComponent(`Property: ${propertyName}`);
-    const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${qrText}`;
-    
-    const link = document.createElement('a');
-    link.href = qrUrl;
-    link.download = `QR_${propertyName.replace(/[^a-zA-Z0-9]/g, '_')}.png`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    
-    toast({
-      title: "Success",
-      description: `QR code downloaded for ${propertyName}`,
-    });
+  const downloadHighResQRCode = (
+    base64: string,
+    filename = "qr_code.png",
+    scale = 4,
+    propertyName: string
+  ) => {
+    const img = new Image();
+    img.src = base64;
+    img.onload = () => {
+      const width = img.width * scale;
+      const height = img.height * scale;
+
+      const canvas = document.createElement("canvas");
+      canvas.width = width;
+      canvas.height = height;
+
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return;
+
+      // Disable image smoothing for sharp edges
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(img, 0, 0, width, height);
+
+      const highResDataUrl = canvas.toDataURL("image/png");
+
+      const link = document.createElement("a");
+      link.href = highResDataUrl;
+      link.download = filename;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+
+      toast({
+        title: "Success",
+        description: `QR code downloaded for ${propertyName}`,
+      });
+    };
   };
 
   const uploadDocument = () => {
-    const input = document.createElement('input');
-    input.type = 'file';
+    const input = document.createElement("input");
+    input.type = "file";
     input.multiple = true;
-    input.accept = '.pdf,.doc,.docx,.jpg,.png';
-    
+    input.accept = ".pdf,.doc,.docx,.jpg,.png";
+
     input.onchange = (e) => {
       const files = (e.target as HTMLInputElement).files;
       if (files && files.length > 0) {
-        const fileNames = Array.from(files).map(f => f.name).join(', ');
+        const fileNames = Array.from(files)
+          .map((f) => f.name)
+          .join(", ");
         toast({
           title: "Files Selected",
           description: `${files.length} document(s) selected: ${fileNames}`,
         });
       }
     };
-    
+
     input.click();
   };
 
   const toggleStatus = (propertyId: number) => {
-    setProperties(prev => 
-      prev.map(prop => 
-        prop.id === propertyId 
-          ? { ...prop, active: !prop.active }
-          : prop
+    setProperties((prev) =>
+      prev.map((prop) =>
+        prop.id === propertyId ? { ...prop, active: !prop.active } : prop
       )
     );
-    
-    const property = properties.find(p => p.id === propertyId);
+
+    const property = properties.find((p) => p.id === propertyId);
     const newStatus = !property?.active;
-    
+
     toast({
       title: "Status Updated",
-      description: `Property ${newStatus ? 'enabled' : 'disabled'} successfully`,
+      description: `Property ${
+        newStatus ? "enabled" : "disabled"
+      } successfully`,
     });
   };
 
@@ -110,16 +129,20 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="min-h-screen bg-white p-5">
+    <div className="min-h-screen bg-customWhite p-5">
       <div className="max-w-6xl mx-auto bg-white border border-black">
         <div className="bg-black text-white p-8 text-center">
           <div className="flex justify-between items-center mb-4">
             <div></div>
             <div>
-              <h1 className="text-4xl font-bold mb-2">Property Management Dashboard</h1>
-              <p className="text-lg opacity-90">Manage inspections, documents, and property status</p>
+              <h1 className="text-4xl font-medium mb-2">
+                Property Management Dashboard
+              </h1>
+              <p className="text-lg">
+                Manage inspections, documents, and property status
+              </p>
             </div>
-            <Button 
+            <Button
               onClick={handleLogout}
               variant="outline"
               className="bg-white text-black hover:bg-gray-100"
@@ -128,16 +151,17 @@ const Dashboard = () => {
             </Button>
           </div>
         </div>
-        
+
         <div className="divide-y divide-black">
           {properties.map((property) => {
             const address = `${property.street_number} ${property.street}, ${property.suburb} ${property.state} ${property.postcode}`;
-            const nextInspection = property.inspection_times && property.inspection_times.length > 0 
-              ? property.inspection_times[0] 
-              : 'TBA';
-            
+            const nextInspection =
+              property.inspection_times && property.inspection_times.length > 0
+                ? property.inspection_times[0]
+                : "TBA";
+
             return (
-              <div 
+              <div
                 key={property.id}
                 className="p-6 hover:bg-gray-50 transition-colors duration-300 flex items-center justify-between gap-5"
               >
@@ -149,21 +173,29 @@ const Dashboard = () => {
                   </div>
                   <div className="w-48">
                     <p className="text-black text-sm">
-                      Next Inspection: {nextInspection}
+                      Next Inspection:
+                      <br /> {nextInspection}
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="flex gap-3 w-96 justify-end">
                   <Button
-                    onClick={() => downloadQR(property.property_name)}
+                    onClick={() =>
+                      downloadHighResQRCode(
+                        property.qr_code,
+                        `${property.property_name}_qr.png`,
+                        6,
+                        property.property_name
+                      )
+                    }
                     variant="outline"
                     size="sm"
                     className="border-black text-black hover:bg-black hover:text-white w-28"
                   >
                     Download QR
                   </Button>
-                  
+
                   <Button
                     onClick={uploadDocument}
                     variant="outline"
@@ -172,31 +204,33 @@ const Dashboard = () => {
                   >
                     Add Location & Lifestyle
                   </Button>
-                  
+
                   <Button
                     onClick={() => toggleStatus(property.id)}
                     variant="outline"
                     size="sm"
                     className={`border-black w-24 transition-all ${
-                      property.active 
-                        ? 'bg-black text-white hover:bg-white hover:text-black' 
-                        : 'bg-white text-black hover:bg-black hover:text-white'
+                      property.active
+                        ? "bg-black text-white hover:bg-white hover:text-black"
+                        : "bg-white text-black hover:bg-black hover:text-white"
                     }`}
                   >
                     <span className="flex items-center gap-1">
-                      <span 
+                      <span
                         className={`w-2 h-2 rounded-full ${
-                          property.active ? 'bg-white' : 'bg-black border border-black'
+                          property.active
+                            ? "bg-white"
+                            : "bg-black border border-black"
                         }`}
                       />
-                      {property.active ? 'Enabled' : 'Disabled'}
+                      {property.active ? "Enabled" : "Disabled"}
                     </span>
                   </Button>
                 </div>
               </div>
             );
           })}
-          
+
           {properties.length === 0 && (
             <div className="p-6 text-center text-gray-500">
               No properties found

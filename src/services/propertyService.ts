@@ -1,5 +1,4 @@
-
-import { apiService, Property } from './apiService';
+import { apiService, Property } from "./apiService";
 
 export interface PropertyData {
   id: string;
@@ -7,8 +6,7 @@ export interface PropertyData {
   suburb: string;
   postcode: string;
   agency: string;
-  logo?: string;
-  images: string[];
+  images: { url: string }[];
   specs: {
     bedrooms: number;
     bathrooms: number;
@@ -21,12 +19,14 @@ export interface PropertyData {
   }>;
   highlight: string;
   description: string[];
-  features: string[];
+  features: PropertyFeatures;
+
   locationInfo: string;
   lifestyle: Array<{
-    image: string;
+    url: string;
     title: string;
     description: string;
+    type: "image" | "video";
   }>;
   agent: {
     name: string;
@@ -35,72 +35,85 @@ export interface PropertyData {
   };
 }
 
+interface PropertyFeatures {
+  bedrooms?: number;
+  bathrooms?: number;
+  garages?: number;
+}
+
 // Transform API property data to match the expected PropertyData interface
 const transformPropertyData = (property: Property): PropertyData => {
   const address = `${property.street_number} ${property.street}, ${property.suburb}`;
   const postcode = `${property.state} ${property.postcode}`;
-  
+
+  const features = property.features as PropertyFeatures;
+
   return {
     id: property.property_id,
     address,
     suburb: property.suburb,
     postcode,
-    agency: property.listing_agent || 'Unknown Agency',
-    images: property.gallery || [
-      "https://images.unsplash.com/photo-1564013799919-ab600027ffc6?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1513694203232-719a280e022f?auto=format&fit=crop&w=800&q=80",
-      "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?auto=format&fit=crop&w=800&q=80"
-    ],
+    agency: property.listing_agent || "Unknown Agency",
+    images: property.gallery || [],
     specs: {
-      bedrooms: 3, // Default values since not in API
-      bathrooms: 2,
-      parking: 2,
-      landSize: property.land_area ? `${property.land_area} ${property.land_area_unit || 'SQM'}` : '450 SQM'
+      bedrooms: features?.bedrooms,
+      bathrooms: features?.bathrooms,
+      parking: features?.garages,
+      landSize: property.land_area
+        ? `${property.land_area} ${
+            property.land_area_unit == "squareMeter" ? "SQM" : ""
+          }`
+        : "",
     },
-    documents: property.property_documents || [
+    documents: property?.property_documents || [
       { name: "Property Report", url: "#" },
       { name: "Building Inspection", url: "#" },
       { name: "Pest Control Report", url: "#" },
       { name: "Contract of Sale", url: "#" },
       { name: "Floor Plan", url: "#" },
-      { name: "Title Deed", url: "#" }
+      { name: "Title Deed", url: "#" },
     ],
     highlight: property.property_name || "Beautiful Property",
-    description: property.description ? [property.description] : ["Beautiful property with great potential."],
-    features: property.features || [
-      "Beautiful location",
-      "Great investment opportunity",
-      "Close to amenities"
-    ],
-    locationInfo: "Great location with excellent amenities and transport links.",
+    description: property.description
+      ? [property.description]
+      : ["Beautiful property with great potential."],
+    features,
+    locationInfo:
+      "Great location with excellent amenities and transport links.",
     lifestyle: property.lifestyle_assets || [
       {
-        image: "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=500&q=80",
+        image:
+          "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=500&q=80",
         title: "Local Park",
-        description: "Beautiful green space for walks and recreation"
+        description: "Beautiful green space for walks and recreation",
       },
       {
-        image: "https://images.unsplash.com/photo-1489599904593-130ba0eba1cd?auto=format&fit=crop&w=500&q=80",
+        image:
+          "https://images.unsplash.com/photo-1489599904593-130ba0eba1cd?auto=format&fit=crop&w=500&q=80",
         title: "Local Cinema",
-        description: "Premium movie experience with latest releases"
-      }
+        description: "Premium movie experience with latest releases",
+      },
     ],
     agent: {
       name: property.listing_agent || "Property Agent",
       agency: property.listing_agent || "Real Estate Agency",
-      applyUrl: "#"
-    }
+      applyUrl: "#",
+    },
   };
 };
 
-export const fetchPropertyData = async (propertyId: string): Promise<PropertyData> => {
-  console.log('Fetching property data for ID:', propertyId);
-  
+export const fetchPropertyData = async (
+  propertyId: string
+): Promise<PropertyData> => {
+  console.log("Fetching property data for ID:", propertyId);
+
   try {
     const property = await apiService.getProperty(propertyId);
+
+    console.log("property fetched", property);
     return transformPropertyData(property);
   } catch (error) {
-    console.error('Error fetching property data:', error);
+    console.error("Error fetching property data:", error);
     throw error;
   }
 };
@@ -109,7 +122,7 @@ export const fetchAllProperties = async (): Promise<Property[]> => {
   try {
     return await apiService.getAllProperties();
   } catch (error) {
-    console.error('Error fetching all properties:', error);
+    console.error("Error fetching all properties:", error);
     throw error;
   }
 };

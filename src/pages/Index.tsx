@@ -1,32 +1,56 @@
-
-import React from 'react';
-import { Link } from 'react-router-dom';
+import React from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { apiService } from "@/services/apiService";
 
 const Index = () => {
+  const isAuthenticated = apiService.isAuthenticated();
+  const getCurrentUser = apiService.getCurrentUser();
+  const navigate = useNavigate();
+
+  console.log("getCurrentUser", getCurrentUser);
+
+  const handleLogout = () => {
+    apiService.logout();
+    navigate("/");
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center bg-white p-8 rounded-lg shadow-md">
-        <h1 className="text-4xl font-bold mb-4 text-slate-700">Home Sight Finder</h1>
-        <p className="text-xl text-gray-600 mb-8">Find your perfect property</p>
-        
+      <div className="text-center bg-black px-5 pt-8 pb-5 rounded-xl shadow-md w-96">
+        <img
+          src="/hauss-logo.png"
+          alt=""
+          className="w-28 h-28 object-contain mx-auto "
+        />
         <div className="space-y-4">
-          <Link
-            to="/auth"
-            className="block bg-orange-400 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-orange-500 transition-colors duration-300 no-underline"
-          >
-            Login to Dashboard
-          </Link>
-          
-          <Link
-            to="/property/1"
-            className="block bg-blue-400 text-white px-8 py-4 rounded-lg font-semibold text-lg hover:bg-blue-500 transition-colors duration-300 no-underline"
-          >
-            View Sample Property
-          </Link>
-          
-          <p className="text-gray-500 text-sm">
-            Property pages are public, dashboard requires authentication
-          </p>
+          {!isAuthenticated ? (
+            <Link
+              to="/auth"
+              className="block text-[#EC9B57] border border-[#EC9B57] px-5 py-3 rounded-xl hover:bg-[#EC9B57] hover:text-white transition-colors duration-300 no-underline"
+            >
+              Login to Dashboard
+            </Link>
+          ) : (
+            <div className="text-white">
+              <div className="flex gap-5 justify-center mt-5">
+                <button
+                  onClick={handleLogout}
+                  className="text-[#EC9B57] hover:text-white"
+                >
+                  Logout
+                </button>
+                <Link
+                  to="/dashboard"
+                  className="text-[#EC9B57] border border-[#EC9B57] px-5 py-2 rounded-xl hover:bg-[#EC9B57] hover:text-white transition-colors duration-300 no-underline"
+                >
+                  Go to Dashboard
+                </Link>
+              </div>
+              <p className="text-center text-sm mt-10">
+                Logged in as: {getCurrentUser?.email}
+              </p>
+            </div>
+          )}
         </div>
       </div>
     </div>

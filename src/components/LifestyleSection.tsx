@@ -1,10 +1,10 @@
-
-import React from 'react';
+import React from "react";
 
 interface LifestyleItem {
-  image: string;
   title: string;
   description: string;
+  type: "image" | "video";
+  url: string;
 }
 
 interface LifestyleSectionProps {
@@ -13,23 +13,34 @@ interface LifestyleSectionProps {
 
 const LifestyleSection: React.FC<LifestyleSectionProps> = ({ lifestyle }) => {
   return (
-    <div className="mt-10 px-10">
-      <h2 className="text-2xl font-semibold mb-5 text-gray-800">Location & Lifestyle</h2>
-      <div className="flex gap-5 overflow-x-auto pb-5">
+    <div className="mt-10 px-8">
+      <h2 className="text-xl font-medium uppercase mb-5 text-customNavy">
+        Location & Lifestyle
+      </h2>
+      <div className="flex gap-5 overflow-x-auto pb-5 rounded-xl ">
         {lifestyle.map((item, index) => (
           <div
             key={index}
-            className="min-w-[500px] bg-white rounded-lg overflow-hidden shadow-md flex-shrink-0"
+            className="min-w-[500px] bg-white rounded-xl overflow-hidden shadow-md flex-shrink-0"
           >
-            <div className="w-full bg-gray-100">
-              <img
-                src={item.image}
-                alt={item.title}
-                className="w-full h-48 object-cover"
-              />
+            <div className="w-full bg-customWhite">
+              {item.type === "image" && (
+                <img
+                  src={item.url}
+                  alt={item.title}
+                  className="w-full h-52 object-cover"
+                />
+              )}
+              {item.type === "video" && (
+                <video
+                  src={item.url}
+                  className="w-full h-52 object-cover"
+                  controls
+                />
+              )}
             </div>
             <div className="p-4">
-              <div className="font-semibold text-slate-700 mb-1">{item.title}</div>
+              <div className="font-medium text-black mb-1">{item.title}</div>
               <div className="text-black text-sm">{item.description}</div>
             </div>
           </div>

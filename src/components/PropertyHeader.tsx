@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React from "react";
 
 interface PropertyHeaderProps {
   property: {
@@ -13,18 +12,14 @@ interface PropertyHeaderProps {
 
 const PropertyHeader: React.FC<PropertyHeaderProps> = ({ property }) => {
   return (
-    <div className="bg-slate-700 text-white p-8 rounded-lg mb-8 shadow-md flex justify-between items-start">
+    <div className="bg-customNavy text-customWhite px-8 py-12 rounded-xl mb-6 shadow-md flex justify-between items-start">
       <div>
-        <h1 className="text-4xl font-light mb-2">{property.address}</h1>
-        <p className="text-xl opacity-90">
+        <h1 className="text-4xl mb-2 font-medium">{property.address}</h1>
+        <p className="mt-4">
           {property.suburb} {property.postcode} | {property.agency}
         </p>
       </div>
-      {property.logo && (
-        <div>
-          <img src={property.logo} alt="Agency Logo" className="w-24 h-auto" />
-        </div>
-      )}
+      <img src="/hauss-logo.png" alt="Agency Logo" className="w-24 h-auto" />
     </div>
   );
 };

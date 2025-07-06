@@ -1,5 +1,4 @@
-
-import React from 'react';
+import React from "react";
 
 interface AgentSectionProps {
   agent: {
@@ -11,19 +10,19 @@ interface AgentSectionProps {
 
 const AgentSection: React.FC<AgentSectionProps> = ({ agent }) => {
   return (
-    <div className="mt-10 p-8 bg-gray-100 rounded-lg">
+    <div className="mt-10 px-8 py-12 bg-customWhite rounded-xl">
       <div className="flex justify-between items-center">
         <div>
-          <h3 className="text-slate-700 font-semibold mb-1">
+          <h3 className="text-customNavy font-medium mb-2 text-lg">
             Listing Agent: {agent.name}
           </h3>
-          <p className="text-black">{agent.agency}</p>
+          <p className="text-black">Hauss Realty</p>
         </div>
         <a
-          href={agent.applyUrl}
+          href="https://www.hauss.com.au/expression-of-interest/"
           target="_blank"
           rel="noopener noreferrer"
-          className="bg-orange-400 text-white px-8 py-4 rounded-lg font-semibold text-base cursor-pointer transition-all duration-300 hover:bg-orange-500 hover:-translate-y-1 no-underline inline-block"
+          className="bg-customOrange text-white px-8 py-4 rounded-lg font-medium text-base cursor-pointer transition-all duration-300 hover:bg-customNavy hover:-translate-y-1 no-underline inline-block"
         >
           Apply For This Property
         </a>

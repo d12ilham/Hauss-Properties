@@ -1,5 +1,4 @@
-
-const API_BASE_URL = 'http://localhost:3000/api/v1';
+const API_BASE_URL = "http://localhost:3000/api/v1";
 
 export interface User {
   id: number;
@@ -34,55 +33,56 @@ export interface Property {
   eco_friendly: any[];
   gallery: any[];
   property_documents: any[];
+  qr_code: string;
   created_at: string;
   updated_at: string;
 }
 
 class ApiService {
   private getAuthHeaders() {
-    const token = localStorage.getItem('auth_token');
+    const token = localStorage.getItem("auth_token");
     return {
-      'Content-Type': 'application/json',
-      ...(token && { 'Authorization': `Bearer ${token}` })
+      "Content-Type": "application/json",
+      ...(token && { Authorization: `Bearer ${token}` }),
     };
   }
 
   async login(email: string, password: string): Promise<LoginResponse> {
-    const response = await fetch(`${API_BASE_URL}/login`, {
-      method: 'POST',
+    const response = await fetch(`${API_BASE_URL}/auth/login`, {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify({ email, password }),
     });
 
     if (!response.ok) {
-      throw new Error('Login failed');
+      throw new Error("Login failed");
     }
 
     const data = await response.json();
-    
+
     // Store the token in localStorage
     if (data.token) {
-      localStorage.setItem('auth_token', data.token);
-      localStorage.setItem('user', JSON.stringify(data.user));
+      localStorage.setItem("auth_token", data.token);
+      localStorage.setItem("user", JSON.stringify(data.user));
     }
 
     return data;
   }
 
   logout() {
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('user');
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("user");
   }
 
   getCurrentUser(): User | null {
-    const userStr = localStorage.getItem('user');
+    const userStr = localStorage.getItem("user");
     return userStr ? JSON.parse(userStr) : null;
   }
 
   isAuthenticated(): boolean {
-    return !!localStorage.getItem('auth_token');
+    return !!localStorage.getItem("auth_token");
   }
 
   async getAllProperties(): Promise<Property[]> {
@@ -91,10 +91,11 @@ class ApiService {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch properties');
+      throw new Error("Failed to fetch properties");
     }
 
-    return response.json();
+    const json = await response.json();
+    return json.data.properties;
   }
 
   async getProperty(id: string): Promise<Property> {
@@ -103,10 +104,12 @@ class ApiService {
     });
 
     if (!response.ok) {
-      throw new Error('Failed to fetch property');
+      throw new Error("Failed to fetch property");
     }
 
-    return response.json();
+    const json = await response.json();
+
+    return json.data.property;
   }
 }
 
