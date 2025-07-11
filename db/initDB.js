@@ -20,16 +20,15 @@ async function initializeDatabase() {
           id INT AUTO_INCREMENT PRIMARY KEY,
           email VARCHAR(255) NOT NULL UNIQUE,
           password VARCHAR(255) NOT NULL,
-          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-          updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+          created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
       `,
     },
     {
       name: "properties",
       schema: `
-  CREATE TABLE properties (
-    id INT AUTO_INCREMENT PRIMARY KEY,
+    CREATE TABLE properties (
+      id INT AUTO_INCREMENT PRIMARY KEY,
     property_id VARCHAR(255) NOT NULL UNIQUE,
     property_name TEXT NOT NULL,
     description TEXT,
@@ -53,9 +52,9 @@ async function initializeDatabase() {
     property_documents JSON,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    INDEX idx_property_id (property_id)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
-`,
+      INDEX idx_property_id (property_id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8 COLLATE=utf8_unicode_ci
+  `,
     },
   ];
 

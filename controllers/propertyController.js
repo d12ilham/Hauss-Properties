@@ -10,7 +10,7 @@ export const getAllProperties = async (req, res) => {
 
     const enhancedProperties = await Promise.all(
       properties.map(async (property) => {
-        const qrLink = `${process.env.FONTEND_URL}/properties/${property.id}`; // or use property_id
+        const qrLink = `${process.env.FONTEND_URL}/properties/${property.property_id}`;
         const qrCodeDataUrl = await QRCode.toDataURL(qrLink);
 
         return {
