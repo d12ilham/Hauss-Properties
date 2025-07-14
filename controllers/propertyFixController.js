@@ -106,6 +106,7 @@ export const fixPropertiesFromFTP = async (req, res) => {
 
     // Step 5: Second pass - move non-latest files to archive
     let movedCount = 0;
+    let organizedCount = 0;
 
     for (const file of xmlFiles) {
       const localPath = path.join(TEMP_DIR, file.name);
@@ -119,11 +120,13 @@ export const fixPropertiesFromFTP = async (req, res) => {
         });
 
         let property = null;
+        let matchedType = null;
         const propertyTypes = ["residential", "rental", "commercial"];
 
         for (const type of propertyTypes) {
           if (result.propertyList?.[type]) {
             property = result.propertyList[type];
+            matchedType = type;
             break;
           }
         }
@@ -137,13 +140,32 @@ export const fixPropertiesFromFTP = async (req, res) => {
         const latestFile = uniqueIdMap.get(uniqueID)?.filename;
 
         if (latestFile && latestFile !== file.name) {
+          // Not the latest, archive it
           try {
-            // ✅ Use rename() instead of move()
             await ftpClient.rename(file.name, `archive/${file.name}`);
             console.log(`✅ Moved to archive: ${file.name}`);
             movedCount++;
           } catch (moveErr) {
             console.error(`❌ Failed to move ${file.name}:`, moveErr.message);
+          }
+        } else if (latestFile === file.name) {
+          // It is the latest → move it to correct folder based on type
+          if (matchedType === "rental" || matchedType === "commercial") {
+            const targetFolder = `/${matchedType}`;
+            try {
+              // Ensure the target folder exists
+              await ftpClient.ensureDir(targetFolder);
+              await ftpClient.rename(file.name, `${matchedType}/${file.name}`);
+              console.log(
+                `📁 Moved latest ${matchedType} to ${matchedType}/${file.name}`
+              );
+              organizedCount++;
+            } catch (moveErr) {
+              console.error(
+                `❌ Failed to move ${file.name} to ${matchedType}:`,
+                moveErr.message
+              );
+            }
           }
         }
 
