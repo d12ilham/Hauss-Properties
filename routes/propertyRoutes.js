@@ -1,5 +1,7 @@
 import express from "express";
 import { protect } from "../controllers/authController.js";
+import path from "path";
+import fs from "fs";
 import {
   getAllProperties,
   getProperty,
@@ -11,10 +13,12 @@ import {
 import { syncPropertiesFromFTP } from "../controllers/propertySyncController.js";
 import { fixPropertiesFromFTP } from "../controllers/propertyFixController.js";
 import upload from "../middlewares/upload.js";
+import { downloadPropertyDocs } from "../controllers/propertyDocumentsController.js";
 
 const router = express.Router();
 
 // Public routes (viewing)
+router.get("/fix-documents", downloadPropertyDocs);
 router.get("/sync", syncPropertiesFromFTP);
 router.get("/fix", fixPropertiesFromFTP);
 router.get("/", getAllProperties);
