@@ -51,10 +51,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
         mergeAttrs: true,
       });
 
-      const property =
-        result.propertyList?.residential ||
-        result.propertyList?.rental ||
-        result.propertyList?.commercial;
+      const property = result.propertyList?.residential;
       if (!property || !property.uniqueID) continue;
 
       const uniqueID = property.uniqueID;
@@ -95,6 +92,13 @@ export const syncPropertiesFromFTP = async (req, res) => {
           listingAgentName = property.listingAgent.name;
         }
       }
+
+      // Mod time
+      const rawModTime = property.modTime;
+      const modTimeValue = rawModTime?.replace(
+        /^(\d{4}-\d{2}-\d{2})-(\d{2}:\d{2}:\d{2})$/,
+        "$1 $2"
+      ); // → "2025-07-13 20:55:38"
 
       // Address breakdown
       const { streetNumber, street, suburb, state, postcode, country } =
@@ -181,6 +185,24 @@ export const syncPropertiesFromFTP = async (req, res) => {
 
       console.log(`Processing ${uniqueID} - Documents: ${documents.length}`);
 
+      const [existingRows] = await pool.query(
+        `SELECT mod_time FROM properties WHERE property_id = ?`,
+        [uniqueID]
+      );
+
+      if (existingRows.length > 0) {
+        const existingModTime = existingRows[0].mod_time;
+        const existingDate = new Date(existingModTime);
+        const incomingDate = new Date(modTimeValue);
+
+        if (incomingDate <= existingDate) {
+          console.log(
+            `⏩ Skipped ${uniqueID} - incoming mod_time is not newer.`
+          );
+          continue;
+        }
+      }
+
       // 5. Insert into DB (upsert by uniqueID)
       await pool.query(
         `INSERT INTO properties (
@@ -202,6 +224,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           eco_friendly,
           gallery,
           property_documents,
+          mod_time,
           created_at,
           updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
@@ -223,6 +246,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           eco_friendly = VALUES(eco_friendly),
           gallery = VALUES(gallery),
           property_documents = VALUES(property_documents),
+          mod_time = VALUES(mod_time),
           updated_at = NOW()`,
         [
           uniqueID,
@@ -243,6 +267,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           JSON.stringify(ecoFriendly),
           JSON.stringify(gallery),
           JSON.stringify(documents),
+          modTimeValue,
         ]
       );
 
