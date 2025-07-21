@@ -14,13 +14,14 @@ import { syncPropertiesFromFTP } from "../controllers/propertySyncController.js"
 import { fixPropertiesFromFTP } from "../controllers/propertyFixController.js";
 import upload from "../middlewares/upload.js";
 import { downloadPropertyDocs } from "../controllers/propertyDocumentsController.js";
+import { verifyCronKey } from "../middlewares/verifyCronKey.js";
 
 const router = express.Router();
 
 // Public routes (viewing)
-router.get("/fix-documents", downloadPropertyDocs);
-router.get("/sync", syncPropertiesFromFTP);
-router.get("/fix", fixPropertiesFromFTP);
+router.get("/fix-documents", verifyCronKey, downloadPropertyDocs);
+router.get("/sync", verifyCronKey, syncPropertiesFromFTP);
+router.get("/fix", verifyCronKey, fixPropertiesFromFTP);
 router.get("/", getAllProperties);
 router.get("/:id", getProperty);
 
