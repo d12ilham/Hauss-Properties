@@ -1,84 +1,77 @@
 import pool from "../db/connection.js";
-import ftp from "basic-ftp";
 import { promises as fs } from "fs";
 import path from "path";
 import os from "os";
 import xml2js from "xml2js";
 
-//sync data from ftp
+// Constants
 const TEMP_DIR = path.join(os.tmpdir(), "property-xml-temp");
+const UPLOADS_DIR = "/home/xmluploader/uploads";
 
 export const syncPropertiesFromFTP = async (req, res) => {
-  const ftpClient = new ftp.Client();
-  ftpClient.ftp.verbose = false;
+  console.log("🔁 Sync started from local folder...");
 
-  console.log("🔁 Sync started...");
   try {
-    // 1. Connect to FTP
-    await ftpClient.access({
-      host: process.env.FTP_HOST,
-      user: process.env.FTP_USER,
-      password: process.env.FTP_PASSWORD,
-      secure: true,
-      secureOptions: {
-        rejectUnauthorized: false, // Accept mismatched certificate
-      },
-    });
-    console.log("✅ FTP connected securely (hostname ignored)");
-
-    // 2. List files in FTP root (or subfolder)
-    const fileList = await ftpClient.list();
-
-    // 2.1 Filter XML files only, skip .ftpquota and other hidden/system files
-    const xmlFiles = fileList.filter(
-      (file) => file.name.endsWith(".xml") && !file.name.startsWith(".")
+    // Step 1: List XML files in upload directory
+    const fileNames = await fs.readdir(UPLOADS_DIR);
+    const xmlFiles = fileNames.filter(
+      (name) => name.endsWith(".xml") && !name.startsWith(".")
     );
 
-    // 3. Group files by uniqueID (extracted from filename or content) to find latest by mod time
-    const propertyFilesMap = new Map();
+    if (xmlFiles.length === 0) {
+      return res.status(200).json({
+        status: "success",
+        message: "No XML files found in upload folder.",
+      });
+    }
 
-    // First pass: Download files temporarily to extract uniqueID
+    const propertyFilesMap = new Map();
     await fs.mkdir(TEMP_DIR, { recursive: true });
 
-    for (const file of xmlFiles) {
-      const localPath = path.join(TEMP_DIR, file.name);
-      await ftpClient.downloadTo(localPath, file.name);
+    // Step 2: Parse each XML file and map by uniqueID
+    for (const fileName of xmlFiles) {
+      const localPath = path.join(UPLOADS_DIR, fileName);
 
-      // Read XML to get uniqueID
-      const xmlData = await fs.readFile(localPath, "utf8");
-      const result = await xml2js.parseStringPromise(xmlData, {
-        explicitArray: false,
-        mergeAttrs: true,
-      });
-
-      const property = result.propertyList?.residential;
-      if (!property || !property.uniqueID) continue;
-
-      const uniqueID = property.uniqueID;
-      const existing = propertyFilesMap.get(uniqueID);
-
-      if (
-        !existing ||
-        new Date(file.modifiedAt) > new Date(existing.file.modifiedAt)
-      ) {
-        propertyFilesMap.set(uniqueID, {
-          file,
-          localPath,
-          propertyData: property,
+      try {
+        const xmlData = await fs.readFile(localPath, "utf8");
+        const result = await xml2js.parseStringPromise(xmlData, {
+          explicitArray: false,
+          mergeAttrs: true,
         });
+
+        const property = result.propertyList?.residential;
+        if (!property || !property.uniqueID) continue;
+
+        const uniqueID = property.uniqueID;
+        const stat = await fs.stat(localPath);
+        const modifiedAt = stat.mtime;
+
+        const existing = propertyFilesMap.get(uniqueID);
+        if (!existing || modifiedAt > existing.modifiedAt) {
+          propertyFilesMap.set(uniqueID, {
+            fileName,
+            localPath,
+            modifiedAt,
+            propertyData: property,
+          });
+        }
+      } catch (err) {
+        console.error(`❌ Failed to process ${fileName}:`, err.message);
+        continue;
       }
     }
 
     const properties = [];
 
-    // Process only the latest version of each property
-    for (const [
-      uniqueID,
-      { file, localPath, propertyData },
-    ] of propertyFilesMap) {
+    // Step 3: Insert or update each latest property into DB
+    for (const {
+      fileName,
+      localPath,
+      modifiedAt,
+      propertyData,
+    } of propertyFilesMap.values()) {
       const property = propertyData;
 
-      // Basic fields
       const headline = property.headline;
       const description = property.description;
       let listingAgentName = null;
@@ -88,53 +81,44 @@ export const syncPropertiesFromFTP = async (req, res) => {
             (agent) => agent.name
           );
           listingAgentName = agentWithName ? agentWithName.name : null;
-        } else if (property.listingAgent.name) {
-          listingAgentName = property.listingAgent.name;
+        } else {
+          listingAgentName = property.listingAgent.name || null;
         }
       }
 
-      // Mod time
       const rawModTime = property.modTime;
-      const modTimeValue = rawModTime?.replace(
-        /^(\d{4}-\d{2}-\d{2})-(\d{2}:\d{2}:\d{2})$/,
-        "$1 $2"
-      ); // → "2025-07-13 20:55:38"
+      const modTimeValue =
+        rawModTime?.replace(
+          /^(\d{4}-\d{2}-\d{2})-(\d{2}:\d{2}:\d{2})$/,
+          "$1 $2"
+        ) || modifiedAt.toISOString().slice(0, 19).replace("T", " ");
 
-      // Address breakdown
       const { streetNumber, street, suburb, state, postcode, country } =
         property.address || {};
 
       const suburbValue =
         typeof suburb === "object" && suburb._ ? suburb._ : suburb || "";
 
-      // Features: key-value pairs
       const features = property.features || {};
-
-      // Land details
       const landArea = parseFloat(property.landDetails?.area?._ || 0);
       const landAreaUnit = property.landDetails?.area?.unit || null;
 
-      // Inspections
       const inspections = property.inspectionTimes?.inspection
         ? Array.isArray(property.inspectionTimes.inspection)
           ? property.inspectionTimes.inspection
           : [property.inspectionTimes.inspection]
         : [];
 
-      // Eco friendly
       const ecoFriendly = property.ecoFriendly || {};
-
-      // Gallery and documents
       const objects = property.objects || {};
       const gallery = [];
       const documents = [];
 
-      // Process floorplans (add to gallery)
       if (objects.floorplan) {
-        const floorplans = Array.isArray(objects.floorplan)
+        const fps = Array.isArray(objects.floorplan)
           ? objects.floorplan
           : [objects.floorplan];
-        floorplans.forEach((fp) => {
+        fps.forEach((fp) => {
           if (fp.url) {
             gallery.push({
               type: "floorplan",
@@ -147,7 +131,6 @@ export const syncPropertiesFromFTP = async (req, res) => {
         });
       }
 
-      // Process images (add to gallery)
       if (objects.img) {
         const imgs = Array.isArray(objects.img) ? objects.img : [objects.img];
         imgs.forEach((img) => {
@@ -163,7 +146,6 @@ export const syncPropertiesFromFTP = async (req, res) => {
         });
       }
 
-      // Process documents (add to documents array)
       if (objects.document) {
         const docs = Array.isArray(objects.document)
           ? objects.document
@@ -183,55 +165,31 @@ export const syncPropertiesFromFTP = async (req, res) => {
         });
       }
 
-      console.log(`Processing ${uniqueID} - Documents: ${documents.length}`);
-
       const [existingRows] = await pool.query(
         `SELECT mod_time FROM properties WHERE property_id = ?`,
-        [uniqueID]
+        [property.uniqueID]
       );
 
       if (existingRows.length > 0) {
-        const existingModTime = existingRows[0].mod_time;
-        const existingDate = new Date(existingModTime);
+        const existingDate = new Date(existingRows[0].mod_time);
         const incomingDate = new Date(modTimeValue);
-
         if (incomingDate <= existingDate) {
-          console.log(
-            `⏩ Skipped ${uniqueID} - incoming mod_time is not newer.`
-          );
+          console.log(`⏩ Skipped ${property.uniqueID} - not newer`);
           continue;
         }
       }
 
-      // 5. Insert into DB (upsert by uniqueID)
       await pool.query(
         `INSERT INTO properties (
-          property_id,
-          property_name,
-          description,
-          lifestyle_assets,
-          street_number,
-          street,
-          suburb,
-          state,
-          postcode,
-          country,
-          listing_agent,
-          land_area,
-          land_area_unit,
-          inspection_times,
-          features,
-          eco_friendly,
-          gallery,
-          property_documents,
-          mod_time,
-          created_at,
-          updated_at
+          property_id, property_name, description, lifestyle_assets,
+          street_number, street, suburb, state, postcode, country,
+          listing_agent, land_area, land_area_unit, inspection_times,
+          features, eco_friendly, gallery, property_documents, mod_time,
+          created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           property_name = VALUES(property_name),
           description = VALUES(description),
-          lifestyle_assets = VALUES(lifestyle_assets),
           street_number = VALUES(street_number),
           street = VALUES(street),
           suburb = VALUES(suburb),
@@ -249,7 +207,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           mod_time = VALUES(mod_time),
           updated_at = NOW()`,
         [
-          uniqueID,
+          property.uniqueID,
           headline,
           description,
           JSON.stringify([]),
@@ -271,13 +229,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
         ]
       );
 
-      properties.push({ id: uniqueID, name: headline });
-    }
-
-    // 7. Clean up - delete any remaining temp files
-    const remainingFiles = await fs.readdir(TEMP_DIR);
-    for (const file of remainingFiles) {
-      await fs.unlink(path.join(TEMP_DIR, file));
+      properties.push({ id: property.uniqueID, name: headline });
     }
 
     res.status(200).json({
@@ -286,9 +238,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
       data: properties,
     });
   } catch (err) {
-    console.error("FTP Sync Error:", err);
+    console.error("❌ Sync Error:", err);
     res.status(500).json({ status: "error", message: err.message });
-  } finally {
-    ftpClient.close();
   }
 };

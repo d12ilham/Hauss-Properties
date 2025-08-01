@@ -12,7 +12,7 @@ async function startServer() {
   // Enable CORS
   app.use(
     cors({
-      origin: process.env.FONTEND_URL,
+      origin: process.env.FRONTEND_URL,
       credentials: true,
     })
   );
@@ -21,8 +21,8 @@ async function startServer() {
   await initializeDatabase();
 
   // Middleware
-  app.use(express.json({ limit: "50mb" }));
-  app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+  app.use(express.json({ limit: "100mb" }));
+  app.use(express.urlencoded({ extended: true, limit: "100mb" }));
 
   app.use(cookieParser());
 
@@ -35,7 +35,12 @@ async function startServer() {
   app.use("/api/v1/properties", propertyRoutes);
 
   // Error handling
+  // Payload too large and other errors
   app.use((err, req, res, next) => {
+    if (err.type === "entity.too.large") {
+      return res.status(413).json({ error: "Payload too large" });
+    }
+
     console.error(err.stack);
     res.status(500).json({ error: "Internal Server Error" });
   });
