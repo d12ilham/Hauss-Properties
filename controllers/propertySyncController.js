@@ -74,16 +74,32 @@ export const syncPropertiesFromFTP = async (req, res) => {
 
       const headline = property.headline;
       const description = property.description;
+
+      // Helper function to extract CDATA or plain text
+      const getValue = (field) => {
+        if (!field) return null;
+        if (typeof field === "object" && "_" in field) return field._;
+        return field;
+      };
+
       let listingAgentName = null;
+      let listingAgentEmail = null;
+      let contactAgent = null;
+
       if (property.listingAgent) {
-        if (Array.isArray(property.listingAgent)) {
-          const agentWithName = property.listingAgent.find(
-            (agent) => agent.name
-          );
-          listingAgentName = agentWithName ? agentWithName.name : null;
-        } else {
-          listingAgentName = property.listingAgent.name || null;
-        }
+        // Always pick the first agent
+        const firstAgent = Array.isArray(property.listingAgent)
+          ? property.listingAgent[0]
+          : property.listingAgent;
+
+        listingAgentName = getValue(firstAgent.name);
+        listingAgentEmail = getValue(firstAgent.email);
+        contactAgent = getValue(firstAgent.telephone);
+
+        // Trim whitespace for safety
+        listingAgentName = listingAgentName?.trim() || null;
+        listingAgentEmail = listingAgentEmail?.trim() || null;
+        contactAgent = contactAgent?.trim() || null;
       }
 
       const rawModTime = property.modTime;
@@ -93,8 +109,17 @@ export const syncPropertiesFromFTP = async (req, res) => {
           "$1 $2"
         ) || modifiedAt.toISOString().slice(0, 19).replace("T", " ");
 
-      const { streetNumber, street, suburb, state, postcode, country } =
-        property.address || {};
+      const {
+        subNumber,
+        streetNumber,
+        street,
+        suburb,
+        state,
+        postcode,
+        country,
+      } = property.address || {};
+
+      const safeSubNumber = subNumber ?? null;
 
       const suburbValue =
         typeof suburb === "object" && suburb._ ? suburb._ : suburb || "";
@@ -181,15 +206,16 @@ export const syncPropertiesFromFTP = async (req, res) => {
 
       await pool.query(
         `INSERT INTO properties (
-          property_id, property_name, description, lifestyle_assets,
+          property_id, property_name, description, lifestyle_assets, sub_number,
           street_number, street, suburb, state, postcode, country,
-          listing_agent, land_area, land_area_unit, inspection_times,
+          listing_agent, contact_agent, land_area, land_area_unit, inspection_times,
           features, eco_friendly, gallery, property_documents, mod_time,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           property_name = VALUES(property_name),
           description = VALUES(description),
+          sub_number = VALUES(sub_number),
           street_number = VALUES(street_number),
           street = VALUES(street),
           suburb = VALUES(suburb),
@@ -197,6 +223,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           postcode = VALUES(postcode),
           country = VALUES(country),
           listing_agent = VALUES(listing_agent),
+          contact_agent = VALUES(contact_agent),
           land_area = VALUES(land_area),
           land_area_unit = VALUES(land_area_unit),
           inspection_times = VALUES(inspection_times),
@@ -211,6 +238,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           headline,
           description,
           JSON.stringify([]),
+          safeSubNumber,
           streetNumber,
           street,
           suburbValue,
@@ -218,6 +246,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           postcode,
           country,
           listingAgentName,
+          contactAgent,
           landArea,
           landAreaUnit,
           JSON.stringify(inspections),
@@ -229,7 +258,15 @@ export const syncPropertiesFromFTP = async (req, res) => {
         ]
       );
 
-      properties.push({ id: property.uniqueID, name: headline });
+      properties.push({
+        id: property.uniqueID,
+        name: headline,
+        apartment: safeSubNumber,
+        street: streetNumber,
+        suburb: suburbValue,
+        state,
+        postcode,
+      });
     }
 
     res.status(200).json({

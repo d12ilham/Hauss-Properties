@@ -37,6 +37,8 @@ async function initializeDatabase() {
     property_type VARCHAR(100),
     qr_url TEXT,
     listing_agent VARCHAR(255),
+    contact_agent VARCHAR(255),
+    sub_number VARCHAR(50),
     street_number VARCHAR(50),
     street VARCHAR(255),
     suburb VARCHAR(255),
