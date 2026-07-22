@@ -1,4 +1,4 @@
-const API_BASE_URL = "http://localhost:3000/api/v1";
+const API_BASE_URL = import.meta.env.VITE_API_VERSION_URL;
 
 export interface User {
   id: number;
@@ -20,6 +20,8 @@ export interface Property {
   active: boolean;
   qr_url: string;
   listing_agent: string;
+  contact_agent: string;
+  sub_number: string | null;
   street_number: string;
   street: string;
   suburb: string;
@@ -110,6 +112,36 @@ class ApiService {
     const json = await response.json();
 
     return json.data.property;
+  }
+
+  async updateProperty(id: string, formData: FormData): Promise<void> {
+    const token = localStorage.getItem("auth_token");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const response = await fetch(`${API_BASE_URL}/properties/${id}`, {
+      method: "PATCH",
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error("Failed to update property");
+    }
+  }
+
+  async updatePropertyStatus(id: string, status: number): Promise<void> {
+    console.log("id", id, "status", status);
+    const token = localStorage.getItem("auth_token");
+    const headers = token ? { Authorization: `Bearer ${token}` } : {};
+
+    const response = await fetch(`${API_BASE_URL}/properties/${id}`, {
+      method: "PUT",
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ id, status }),
+    });
+    if (!response.ok) {
+      throw new Error("Failed to update property");
+    }
   }
 }
 

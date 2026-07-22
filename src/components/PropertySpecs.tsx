@@ -31,10 +31,13 @@ const PropertySpecs: React.FC<PropertySpecsProps> = ({ specs }) => {
           <p>{specs.parking}</p>
         </div>
       </div>
-      <div className="flex items-center gap-2 text-black ">
-        <span className="font-medium">Land Size:</span>
-        <span>{specs.landSize}</span>
-      </div>
+
+      {specs.landSize && (
+        <div className="flex items-center gap-2 text-black ">
+          <span className="font-medium">Land Size:</span>
+          <span>{specs.landSize}</span>
+        </div>
+      )}
     </div>
   );
 };

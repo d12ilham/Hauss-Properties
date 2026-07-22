@@ -122,3 +122,19 @@ All colors MUST be HSL.
     font-weight: 300;
   }
 }
+
+/* Will NOT work on iPhone Safari */
+.scrollbar-visible {
+  scrollbar-width: auto; /* Firefox */
+  -ms-overflow-style: auto; /* IE 10+ */
+}
+
+.scrollbar-force {
+  overflow-x: scroll !important;
+  -webkit-overflow-scrolling: auto;
+  scrollbar-width: auto;
+}
+
+.scroll-touch {
+  -webkit-overflow-scrolling: touch;
+}

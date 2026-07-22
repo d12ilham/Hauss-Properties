@@ -16,7 +16,11 @@ const Index = () => {
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="text-center bg-black px-5 pt-8 pb-5 rounded-xl shadow-md w-96">
+      <div
+        className={`${
+          isAuthenticated ? "pb-5" : "pb-10"
+        } text-center bg-customNavy px-5 pt-8 rounded-xl shadow-md w-96`}
+      >
         <img
           src="/hauss-logo.png"
           alt=""
@@ -26,7 +30,7 @@ const Index = () => {
           {!isAuthenticated ? (
             <Link
               to="/auth"
-              className="block text-[#EC9B57] border border-[#EC9B57] px-5 py-3 rounded-xl hover:bg-[#EC9B57] hover:text-white transition-colors duration-300 no-underline"
+              className="block text-customNavy font-normal px-5 py-3 rounded-xl bg-customOrange hover:text-white hover:bg-primary transition-colors duration-300 no-underline"
             >
               Login to Dashboard
             </Link>
@@ -35,13 +39,13 @@ const Index = () => {
               <div className="flex gap-5 justify-center mt-5">
                 <button
                   onClick={handleLogout}
-                  className="text-[#EC9B57] hover:text-white"
+                  className="text-customOrange hover:text-white"
                 >
                   Logout
                 </button>
                 <Link
                   to="/dashboard"
-                  className="text-[#EC9B57] border border-[#EC9B57] px-5 py-2 rounded-xl hover:bg-[#EC9B57] hover:text-white transition-colors duration-300 no-underline"
+                  className="text-customNavy px-5 py-2.5 font-normal rounded-xl bg-customOrange hover:text-white hover:bg-primary transition-colors duration-300 no-underline"
                 >
                   Go to Dashboard
                 </Link>

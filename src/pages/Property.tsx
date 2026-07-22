@@ -47,29 +47,44 @@ const Property = () => {
 
   return (
     <div className="min-h-screen bg-customWhite">
-      <div className="max-w-4xl mx-auto p-5">
-        <PropertyHeader property={property} />
+      {property?.active ? (
+        <div className="max-w-7xl mx-auto p-5">
+          <PropertyHeader property={property} />
 
-        <div className="bg-white rounded-xl shadow-sm mb-5 p-8">
-          <PropertyImages images={property.images} />
-          <PropertySpecs specs={property.specs} />
-          <PropertyDocuments documents={property.documents} />
+          <div className="bg-white rounded-3xl shadow-sm mb-5 p-5 md:p-8 border">
+            <PropertyImages images={property.images} />
+            <PropertySpecs specs={property.specs} />
 
-          <div className="bg-customPutty border-l-4 border-customOrange p-4 rounded-lg my-5 font-medium text-customNavy">
-            {property.highlight}
+            {property?.documents.length > 0 && (
+              <PropertyDocuments documents={property.documents} />
+            )}
+
+            <div className="bg-customPutty border-l-4 border-customOrange p-4 rounded-lg mb-5 font-medium text-customNavy">
+              {property.highlight}
+            </div>
+
+            <PropertyDescription
+              description={property.description.join("\n")}
+              setPropertyFeatures={setPropertyFeatures}
+              setLocationInfo={setLocationInfo}
+            />
+            {propertyFeatures.length > 0 && (
+              <PropertyFeatures features={propertyFeatures} />
+            )}
+            <LocationInfo info={locationInfo} />
+
+            {property?.lifestyle.length > 0 && (
+              <LifestyleSection lifestyle={property.lifestyle} />
+            )}
+
+            <AgentSection agent={property.agent} />
           </div>
-
-          <PropertyDescription
-            description={property.description.join("\n")}
-            setPropertyFeatures={setPropertyFeatures}
-            setLocationInfo={setLocationInfo}
-          />
-          <PropertyFeatures features={propertyFeatures} />
-          <LocationInfo info={locationInfo} />
-          <LifestyleSection lifestyle={property.lifestyle} />
-          <AgentSection agent={property.agent} />
         </div>
-      </div>
+      ) : (
+        <div className="min-h-screen flex items-center justify-center">
+          Property is not active
+        </div>
+      )}
     </div>
   );
 };

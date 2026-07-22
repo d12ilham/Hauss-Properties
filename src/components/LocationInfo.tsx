@@ -6,7 +6,7 @@ interface LocationInfoProps {
 
 const LocationInfo: React.FC<LocationInfoProps> = ({ info }) => {
   return (
-    <div className="bg-customPutty p-8 rounded-xl mt-5 border border-[#d4edda]">
+    <div className="bg-customPutty p-8 rounded-xl mt-5">
       <h3 className="text-customNavy text-xl font-medium mb-4 uppercase">
         Location & Lifestyle
       </h3>

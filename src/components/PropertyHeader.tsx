@@ -6,20 +6,26 @@ interface PropertyHeaderProps {
     suburb: string;
     postcode: string;
     agency: string;
+    agencyNumber: string;
     logo?: string;
   };
 }
 
 const PropertyHeader: React.FC<PropertyHeaderProps> = ({ property }) => {
   return (
-    <div className="bg-customNavy text-customWhite px-8 py-12 rounded-xl mb-6 shadow-md flex justify-between items-start">
-      <div>
-        <h1 className="text-4xl mb-2 font-medium">{property.address}</h1>
-        <p className="mt-4">
-          {property.suburb} {property.postcode} | {property.agency}
-        </p>
-      </div>
-      <img src="/hauss-logo.png" alt="Agency Logo" className="w-24 h-auto" />
+    <div className="bg-customNavy text-customWhite px-8 py-10 rounded-3xl mb-6 shadow-md flex flex-col items-center gap-3 border">
+      <img
+        src="/hauss-logo.png"
+        alt="Agency Logo"
+        className="w-20 h-auto md:w-28"
+      />
+      <h1 className="text-2xl md:text-4xl text-center md:text-left font-medium leading-[1.4em]">
+        {property.address}
+      </h1>
+      <p className="leading-[1.5em] text-center md:text-left ">
+        {property.agency} |{" "}
+        <a href={`tel:${property.agencyNumber}`}>{property.agencyNumber}</a>
+      </p>
     </div>
   );
 };

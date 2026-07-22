@@ -50,11 +50,18 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-      <Card className="w-full max-w-md rounded-xl px-5 py-10">
+    <div className="min-h-screen flex items-center justify-center bg-customWhite p-4">
+      <Card className="w-full max-w-md rounded-xl px-5 py-10 bg-customNavy text-customWhite">
         <CardHeader className="text-center p-0">
+          <img
+            src="/hauss-logo.png"
+            alt=""
+            className="h-24 mx-auto bg-customNavy p-2 mb-5 rounded-lg"
+          />
           <CardTitle className="text-2xl font-bold">Sign In</CardTitle>
-          <CardDescription>Welcome back to Hauss Realty</CardDescription>
+          <CardDescription className="text-customWhite">
+            Welcome back to Hauss Realty
+          </CardDescription>
         </CardHeader>
         <CardContent className="p-0">
           <form onSubmit={handleAuth} className="space-y-4">
@@ -69,7 +76,7 @@ const Auth = () => {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Enter your email"
                 required
-                className="h-12 rounded-xl"
+                className="h-12 rounded-xl bg-customWhite text-customNavy"
               />
             </div>
 
@@ -84,13 +91,13 @@ const Auth = () => {
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Enter your password"
                 required
-                className="h-12 rounded-xl"
+                className="h-12 rounded-xl bg-customWhite text-customNavy"
               />
             </div>
 
             <Button
               type="submit"
-              className="w-full rounded-xl h-12"
+              className="w-full rounded-xl h-12 bg-customOrange text-customNavy hover:text-customWhite"
               disabled={loading}
             >
               {loading ? "Please wait..." : "Sign In"}

@@ -6,6 +6,7 @@ export interface PropertyData {
   suburb: string;
   postcode: string;
   agency: string;
+  agencyNumber: string;
   images: { url: string }[];
   specs: {
     bedrooms: number;
@@ -13,8 +14,9 @@ export interface PropertyData {
     parking: number;
     landSize: string;
   };
+  active: boolean;
   documents: Array<{
-    name: string;
+    title: string;
     url: string;
   }>;
   highlight: string;
@@ -31,6 +33,7 @@ export interface PropertyData {
   agent: {
     name: string;
     agency: string;
+    agencyNumber: string;
     applyUrl: string;
   };
 }
@@ -43,7 +46,8 @@ interface PropertyFeatures {
 
 // Transform API property data to match the expected PropertyData interface
 const transformPropertyData = (property: Property): PropertyData => {
-  const address = `${property.street_number} ${property.street}, ${property.suburb}`;
+  const subNumber = property.sub_number ? `${property.sub_number}/` : "";
+  const address = `${subNumber}${property.street_number} ${property.street}, ${property.suburb}`;
   const postcode = `${property.state} ${property.postcode}`;
 
   const features = property.features as PropertyFeatures;
@@ -53,7 +57,9 @@ const transformPropertyData = (property: Property): PropertyData => {
     address,
     suburb: property.suburb,
     postcode,
+    active: property.active,
     agency: property.listing_agent || "Unknown Agency",
+    agencyNumber: property.contact_agent || "Unknown Agent",
     images: property.gallery || [],
     specs: {
       bedrooms: features?.bedrooms,
@@ -66,12 +72,12 @@ const transformPropertyData = (property: Property): PropertyData => {
         : "",
     },
     documents: property?.property_documents || [
-      { name: "Property Report", url: "#" },
-      { name: "Building Inspection", url: "#" },
-      { name: "Pest Control Report", url: "#" },
-      { name: "Contract of Sale", url: "#" },
-      { name: "Floor Plan", url: "#" },
-      { name: "Title Deed", url: "#" },
+      { title: "Property Report", url: "#" },
+      { title: "Building Inspection", url: "#" },
+      { title: "Pest Control Report", url: "#" },
+      { title: "Contract of Sale", url: "#" },
+      { title: "Floor Plan", url: "#" },
+      { title: "Title Deed", url: "#" },
     ],
     highlight: property.property_name || "Beautiful Property",
     description: property.description
@@ -97,6 +103,7 @@ const transformPropertyData = (property: Property): PropertyData => {
     agent: {
       name: property.listing_agent || "Property Agent",
       agency: property.listing_agent || "Real Estate Agency",
+      agencyNumber: property.contact_agent,
       applyUrl: "#",
     },
   };
