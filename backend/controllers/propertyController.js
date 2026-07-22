@@ -6,7 +6,23 @@ import path from "path";
 // Get all properties
 export const getAllProperties = async (req, res) => {
   try {
-    const [properties] = await pool.query("SELECT * FROM properties");
+    const { type } = req.query;
+    let query = "SELECT * FROM properties";
+    const queryParams = [];
+
+    if (type) {
+      if (type === "residential") {
+        query += " WHERE property_type = 'residential' OR property_type IS NULL";
+      } else {
+        query += " WHERE property_type = ?";
+        queryParams.push(type);
+      }
+    } else {
+      // Default to residential sales properties to ensure backward compatibility
+      query += " WHERE property_type = 'residential' OR property_type IS NULL";
+    }
+
+    const [properties] = await pool.query(query, queryParams);
 
     const enhancedProperties = await Promise.all(
       properties.map(async (property) => {

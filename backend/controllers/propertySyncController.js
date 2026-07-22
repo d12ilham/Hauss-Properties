@@ -7,68 +7,87 @@ import xml2js from "xml2js";
 // Constants
 const TEMP_DIR = path.join(os.tmpdir(), "property-xml-temp");
 const UPLOADS_DIR = "/home/xmluploader/uploads";
+const RENTAL_DIR = path.join(UPLOADS_DIR, "rental");
+const COMMERCIAL_DIR = path.join(UPLOADS_DIR, "commercial");
 
 export const syncPropertiesFromFTP = async (req, res) => {
-  console.log("🔁 Sync started from local folder...");
+  console.log("🔁 Sync started from local folders...");
 
   try {
-    // Step 1: List XML files in upload directory
-    const fileNames = await fs.readdir(UPLOADS_DIR);
-    const xmlFiles = fileNames.filter(
-      (name) => name.endsWith(".xml") && !name.startsWith(".")
-    );
-
-    if (xmlFiles.length === 0) {
-      return res.status(200).json({
-        status: "success",
-        message: "No XML files found in upload folder.",
-      });
-    }
-
     const propertyFilesMap = new Map();
     await fs.mkdir(TEMP_DIR, { recursive: true });
 
-    // Step 2: Parse each XML file and map by uniqueID
-    for (const fileName of xmlFiles) {
-      const localPath = path.join(UPLOADS_DIR, fileName);
+    const sourceDirectories = [
+      { dirPath: UPLOADS_DIR, defaultType: "residential" },
+      { dirPath: RENTAL_DIR, defaultType: "rental" },
+      { dirPath: COMMERCIAL_DIR, defaultType: "commercial" },
+    ];
 
-      try {
-        const xmlData = await fs.readFile(localPath, "utf8");
-        const result = await xml2js.parseStringPromise(xmlData, {
-          explicitArray: false,
-          mergeAttrs: true,
-        });
+    // Step 1: Scan and map XML files from all source directories
+    for (const source of sourceDirectories) {
+      await fs.mkdir(source.dirPath, { recursive: true });
+      const fileNames = await fs.readdir(source.dirPath);
+      const xmlFiles = fileNames.filter(
+        (name) => name.endsWith(".xml") && !name.startsWith(".")
+      );
 
-        const property = result.propertyList?.residential;
-        if (!property || !property.uniqueID) continue;
+      for (const fileName of xmlFiles) {
+        const localPath = path.join(source.dirPath, fileName);
 
-        const uniqueID = property.uniqueID;
-        const stat = await fs.stat(localPath);
-        const modifiedAt = stat.mtime;
-
-        const existing = propertyFilesMap.get(uniqueID);
-        if (!existing || modifiedAt > existing.modifiedAt) {
-          propertyFilesMap.set(uniqueID, {
-            fileName,
-            localPath,
-            modifiedAt,
-            propertyData: property,
+        try {
+          const xmlData = await fs.readFile(localPath, "utf8");
+          const result = await xml2js.parseStringPromise(xmlData, {
+            explicitArray: false,
+            mergeAttrs: true,
           });
+
+          const propertyList = result.propertyList || {};
+          const keys = Object.keys(propertyList).filter((k) => k !== "$");
+          const typeKey = keys.find((k) =>
+            ["residential", "rental", "commercial"].includes(k)
+          );
+
+          if (!typeKey) continue;
+          const property = propertyList[typeKey];
+          if (!property || !property.uniqueID) continue;
+
+          const uniqueID = property.uniqueID;
+          const stat = await fs.stat(localPath);
+          const modifiedAt = stat.mtime;
+
+          const existing = propertyFilesMap.get(uniqueID);
+          if (!existing || modifiedAt > existing.modifiedAt) {
+            propertyFilesMap.set(uniqueID, {
+              fileName,
+              localPath,
+              modifiedAt,
+              propertyData: property,
+              propertyType: typeKey,
+            });
+          }
+        } catch (err) {
+          console.error(`❌ Failed to process ${fileName} in ${source.dirPath}:`, err.message);
+          continue;
         }
-      } catch (err) {
-        console.error(`❌ Failed to process ${fileName}:`, err.message);
-        continue;
       }
+    }
+
+    if (propertyFilesMap.size === 0) {
+      return res.status(200).json({
+        status: "success",
+        message: "No XML files found to sync.",
+      });
     }
 
     const properties = [];
 
-    // Step 3: Insert or update each latest property into DB
+    // Step 2: Insert or update each latest property into DB
     for (const {
       fileName,
       localPath,
       modifiedAt,
       propertyData,
+      propertyType,
     } of propertyFilesMap.values()) {
       const property = propertyData;
 
@@ -204,14 +223,30 @@ export const syncPropertiesFromFTP = async (req, res) => {
         }
       }
 
+      // Extract status attribute (e.g. status="withdrawn" or status="current")
+      const statusValue = property.status || "current";
+
+      // Extract videoLink attribute / tag
+      let videoLinkUrl = null;
+      if (property.videoLink) {
+        if (Array.isArray(property.videoLink)) {
+          videoLinkUrl = property.videoLink[0]?.href || null;
+        } else if (typeof property.videoLink === "object") {
+          videoLinkUrl = property.videoLink.href || null;
+        } else if (typeof property.videoLink === "string") {
+          videoLinkUrl = property.videoLink;
+        }
+      }
+
       await pool.query(
         `INSERT INTO properties (
           property_id, property_name, description, lifestyle_assets, sub_number,
           street_number, street, suburb, state, postcode, country,
           listing_agent, contact_agent, land_area, land_area_unit, inspection_times,
           features, eco_friendly, gallery, property_documents, mod_time,
+          property_type, status, video_link,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           property_name = VALUES(property_name),
           description = VALUES(description),
@@ -232,6 +267,9 @@ export const syncPropertiesFromFTP = async (req, res) => {
           gallery = VALUES(gallery),
           property_documents = VALUES(property_documents),
           mod_time = VALUES(mod_time),
+          property_type = VALUES(property_type),
+          status = VALUES(status),
+          video_link = VALUES(video_link),
           updated_at = NOW()`,
         [
           property.uniqueID,
@@ -255,6 +293,9 @@ export const syncPropertiesFromFTP = async (req, res) => {
           JSON.stringify(gallery),
           JSON.stringify(documents),
           modTimeValue,
+          propertyType,
+          statusValue,
+          videoLinkUrl,
         ]
       );
 
@@ -266,6 +307,9 @@ export const syncPropertiesFromFTP = async (req, res) => {
         suburb: suburbValue,
         state,
         postcode,
+        type: propertyType,
+        status: statusValue,
+        video_link: videoLinkUrl,
       });
     }
 

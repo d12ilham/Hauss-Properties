@@ -23,6 +23,18 @@ router.get("/fix-documents", verifyCronKey, downloadPropertyDocs);
 router.get("/sync", verifyCronKey, syncPropertiesFromFTP);
 router.get("/fix", verifyCronKey, fixPropertiesFromFTP);
 router.get("/", getAllProperties);
+router.get("/sales", (req, res, next) => {
+  Object.defineProperty(req, "query", { value: { type: "residential" }, writable: true });
+  getAllProperties(req, res, next);
+});
+router.get("/rentals", (req, res, next) => {
+  Object.defineProperty(req, "query", { value: { type: "rental" }, writable: true });
+  getAllProperties(req, res, next);
+});
+router.get("/commercial", (req, res, next) => {
+  Object.defineProperty(req, "query", { value: { type: "commercial" }, writable: true });
+  getAllProperties(req, res, next);
+});
 router.get("/:id", getProperty);
 
 // Protected admin routes (modification)
