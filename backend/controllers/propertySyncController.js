@@ -226,6 +226,18 @@ export const syncPropertiesFromFTP = async (req, res) => {
       // Extract status attribute (e.g. status="withdrawn" or status="current")
       const statusValue = property.status || "current";
 
+      // Extract category attribute (e.g. name="House" or name="Unit")
+      let categoryValue = null;
+      if (property.category) {
+        if (Array.isArray(property.category)) {
+          categoryValue = property.category[0]?.name || null;
+        } else if (typeof property.category === "object") {
+          categoryValue = property.category.name || null;
+        } else if (typeof property.category === "string") {
+          categoryValue = property.category;
+        }
+      }
+
       // Extract videoLink attribute / tag
       let videoLinkUrl = null;
       if (property.videoLink) {
@@ -244,9 +256,9 @@ export const syncPropertiesFromFTP = async (req, res) => {
           street_number, street, suburb, state, postcode, country,
           listing_agent, contact_agent, land_area, land_area_unit, inspection_times,
           features, eco_friendly, gallery, property_documents, mod_time,
-          property_type, status, video_link,
+          property_type, category, status, video_link,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           property_name = VALUES(property_name),
           description = VALUES(description),
@@ -268,6 +280,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           property_documents = VALUES(property_documents),
           mod_time = VALUES(mod_time),
           property_type = VALUES(property_type),
+          category = VALUES(category),
           status = VALUES(status),
           video_link = VALUES(video_link),
           updated_at = NOW()`,
@@ -294,6 +307,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           JSON.stringify(documents),
           modTimeValue,
           propertyType,
+          categoryValue,
           statusValue,
           videoLinkUrl,
         ]
@@ -308,6 +322,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
         state,
         postcode,
         type: propertyType,
+        category: categoryValue,
         status: statusValue,
         video_link: videoLinkUrl,
       });

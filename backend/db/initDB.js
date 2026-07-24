@@ -35,6 +35,7 @@ async function initializeDatabase() {
     lifestyle_assets JSON,
     active BOOLEAN DEFAULT TRUE,
     property_type VARCHAR(100),
+    category VARCHAR(100),
     status VARCHAR(50) DEFAULT 'current',
     video_link TEXT,
     auction BOOLEAN DEFAULT NULL,

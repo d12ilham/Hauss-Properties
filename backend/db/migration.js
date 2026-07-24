@@ -57,6 +57,17 @@ async function migrate() {
       console.log("Added 'external_link' column to properties table.");
     }
 
+    // Add category column if it doesn't exist
+    const [colsCategory] = await pool.query(
+      `SELECT column_name FROM information_schema.columns 
+       WHERE table_schema = ? AND table_name = 'properties' AND column_name = 'category'`,
+      [process.env.DB_NAME]
+    );
+    if (colsCategory.length === 0) {
+      await pool.query("ALTER TABLE properties ADD COLUMN category VARCHAR(100) DEFAULT NULL");
+      console.log("Added 'category' column to properties table.");
+    }
+
     // 6. Set existing NULL property_type to 'residential'
     const [resultType] = await pool.query("UPDATE properties SET property_type = 'residential' WHERE property_type IS NULL");
     console.log(`Updated ${resultType.affectedRows} properties to 'residential' property_type.`);
