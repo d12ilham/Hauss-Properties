@@ -10,9 +10,22 @@ async function startServer() {
   const app = express();
 
   // Enable CORS
+  const allowedOrigins = (process.env.ALLOWED_ORIGINS || process.env.FRONTEND_URL || "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter((o) => o !== "");
+
   app.use(
     cors({
-      origin: process.env.FRONTEND_URL,
+      origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps, curl, postman)
+        if (!origin) return callback(null, true);
+        if (allowedOrigins.includes(origin)) {
+          return callback(null, true);
+        } else {
+          return callback(null, false);
+        }
+      },
       credentials: true,
     })
   );
