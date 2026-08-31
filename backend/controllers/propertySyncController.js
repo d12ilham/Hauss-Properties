@@ -104,21 +104,36 @@ export const syncPropertiesFromFTP = async (req, res) => {
       let listingAgentName = null;
       let listingAgentEmail = null;
       let contactAgent = null;
+      let agentsList = [];
 
       if (property.listingAgent) {
-        // Always pick the first agent
-        const firstAgent = Array.isArray(property.listingAgent)
-          ? property.listingAgent[0]
-          : property.listingAgent;
+        const rawAgents = Array.isArray(property.listingAgent)
+          ? property.listingAgent
+          : [property.listingAgent];
 
-        listingAgentName = getValue(firstAgent.name);
-        listingAgentEmail = getValue(firstAgent.email);
-        contactAgent = getValue(firstAgent.telephone);
+        rawAgents.forEach((ag, idx) => {
+          if (!ag) return;
+          const name = getValue(ag.name)?.trim() || null;
+          const email = getValue(ag.email)?.trim() || null;
+          const telephone = getValue(ag.telephone)?.trim() || null;
+          const id = ag.$?.id || ag.id || String(idx + 1);
 
-        // Trim whitespace for safety
-        listingAgentName = listingAgentName?.trim() || null;
-        listingAgentEmail = listingAgentEmail?.trim() || null;
-        contactAgent = contactAgent?.trim() || null;
+          if (name || telephone || email) {
+            agentsList.push({
+              id,
+              name,
+              email,
+              telephone,
+            });
+          }
+        });
+
+        // Set primary agent values for backward compatibility
+        if (agentsList.length > 0) {
+          listingAgentName = agentsList[0].name;
+          listingAgentEmail = agentsList[0].email;
+          contactAgent = agentsList[0].telephone;
+        }
       }
 
       const rawModTime = property.modTime;
@@ -254,11 +269,11 @@ export const syncPropertiesFromFTP = async (req, res) => {
         `INSERT INTO properties (
           property_id, property_name, description, lifestyle_assets, sub_number,
           street_number, street, suburb, state, postcode, country,
-          listing_agent, contact_agent, land_area, land_area_unit, inspection_times,
+          listing_agent, contact_agent, agents, land_area, land_area_unit, inspection_times,
           features, eco_friendly, gallery, property_documents, mod_time,
           property_type, category, status, video_link,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           property_name = VALUES(property_name),
           description = VALUES(description),
@@ -271,6 +286,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           country = VALUES(country),
           listing_agent = VALUES(listing_agent),
           contact_agent = VALUES(contact_agent),
+          agents = VALUES(agents),
           land_area = VALUES(land_area),
           land_area_unit = VALUES(land_area_unit),
           inspection_times = VALUES(inspection_times),
@@ -298,6 +314,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           country,
           listingAgentName,
           contactAgent,
+          agentsList.length > 0 ? JSON.stringify(agentsList) : null,
           landArea,
           landAreaUnit,
           JSON.stringify(inspections),

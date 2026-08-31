@@ -44,6 +44,7 @@ async function initializeDatabase() {
     qr_url TEXT,
     listing_agent VARCHAR(255),
     contact_agent VARCHAR(255),
+    agents JSON,
     sub_number VARCHAR(50),
     street_number VARCHAR(50),
     street VARCHAR(255),
@@ -79,6 +80,18 @@ async function initializeDatabase() {
         await runQuery(table.schema);
         console.log(`Created ${table.name} table`);
       }
+    }
+
+    // Auto-migration: Check if 'agents' column exists in existing 'properties' table
+    const agentsColCheck = await runQuery(
+      `SELECT 1 FROM information_schema.columns 
+       WHERE table_schema = ? AND table_name = 'properties' AND column_name = 'agents' LIMIT 1`,
+      [process.env.DB_NAME]
+    );
+
+    if (agentsColCheck.length === 0) {
+      await runQuery(`ALTER TABLE properties ADD COLUMN agents JSON AFTER contact_agent`);
+      console.log("✅ Auto-migration: Added 'agents' JSON column to properties table");
     }
   } catch (err) {
     console.error("Database initialization failed:", err);
