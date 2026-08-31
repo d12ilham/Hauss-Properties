@@ -225,11 +225,13 @@ export const syncPropertiesFromFTP = async (req, res) => {
       }
 
       const [existingRows] = await pool.query(
-        `SELECT mod_time FROM properties WHERE property_id = ?`,
+        `SELECT mod_time, agents FROM properties WHERE property_id = ?`,
         [property.uniqueID]
       );
 
-      if (existingRows.length > 0) {
+      const isForce = req.query.force === "true" || req.query.force === "1";
+
+      if (!isForce && existingRows.length > 0 && existingRows[0].agents !== null) {
         const existingDate = new Date(existingRows[0].mod_time);
         const incomingDate = new Date(modTimeValue);
         if (incomingDate <= existingDate) {
