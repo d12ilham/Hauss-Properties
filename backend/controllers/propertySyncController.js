@@ -225,13 +225,13 @@ export const syncPropertiesFromFTP = async (req, res) => {
       }
 
       const [existingRows] = await pool.query(
-        `SELECT mod_time, agents FROM properties WHERE property_id = ?`,
+        `SELECT mod_time, agents, price_view FROM properties WHERE property_id = ?`,
         [property.uniqueID]
       );
 
       const isForce = req.query.force === "true" || req.query.force === "1";
 
-      if (!isForce && existingRows.length > 0 && existingRows[0].agents !== null) {
+      if (!isForce && existingRows.length > 0 && existingRows[0].agents !== null && existingRows[0].price_view !== null) {
         const existingDate = new Date(existingRows[0].mod_time);
         const incomingDate = new Date(modTimeValue);
         if (incomingDate <= existingDate) {
@@ -267,15 +267,21 @@ export const syncPropertiesFromFTP = async (req, res) => {
         }
       }
 
+      // Extract priceView attribute / tag
+      let priceViewValue = null;
+      if (property.priceView) {
+        priceViewValue = getValue(property.priceView)?.trim() || null;
+      }
+
       await pool.query(
         `INSERT INTO properties (
           property_id, property_name, description, lifestyle_assets, sub_number,
           street_number, street, suburb, state, postcode, country,
           listing_agent, contact_agent, agents, land_area, land_area_unit, inspection_times,
           features, eco_friendly, gallery, property_documents, mod_time,
-          property_type, category, status, video_link,
+          property_type, category, status, video_link, price_view,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           property_name = VALUES(property_name),
           description = VALUES(description),
@@ -301,6 +307,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           category = VALUES(category),
           status = VALUES(status),
           video_link = VALUES(video_link),
+          price_view = VALUES(price_view),
           updated_at = NOW()`,
         [
           property.uniqueID,
@@ -329,6 +336,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           categoryValue,
           statusValue,
           videoLinkUrl,
+          priceViewValue,
         ]
       );
 

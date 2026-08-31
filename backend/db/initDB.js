@@ -38,6 +38,7 @@ async function initializeDatabase() {
     category VARCHAR(100),
     status VARCHAR(50) DEFAULT 'current',
     video_link TEXT,
+    price_view VARCHAR(255),
     auction BOOLEAN DEFAULT NULL,
     auction_date TEXT,
     external_link TEXT,
@@ -92,6 +93,18 @@ async function initializeDatabase() {
     if (agentsColCheck.length === 0) {
       await runQuery(`ALTER TABLE properties ADD COLUMN agents JSON AFTER contact_agent`);
       console.log("✅ Auto-migration: Added 'agents' JSON column to properties table");
+    }
+
+    // Auto-migration: Check if 'price_view' column exists in existing 'properties' table
+    const priceViewColCheck = await runQuery(
+      `SELECT 1 FROM information_schema.columns 
+       WHERE table_schema = ? AND table_name = 'properties' AND column_name = 'price_view' LIMIT 1`,
+      [process.env.DB_NAME]
+    );
+
+    if (priceViewColCheck.length === 0) {
+      await runQuery(`ALTER TABLE properties ADD COLUMN price_view VARCHAR(255) AFTER video_link`);
+      console.log("✅ Auto-migration: Added 'price_view' column to properties table");
     }
   } catch (err) {
     console.error("Database initialization failed:", err);
