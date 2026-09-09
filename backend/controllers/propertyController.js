@@ -6,20 +6,33 @@ import path from "path";
 // Get all properties
 export const getAllProperties = async (req, res) => {
   try {
-    const { type } = req.query;
+    const { type, status } = req.query;
     let query = "SELECT * FROM properties";
     const queryParams = [];
+    const conditions = [];
 
     if (type) {
       if (type === "residential") {
-        query += " WHERE property_type = 'residential' OR property_type IS NULL";
+        conditions.push("(property_type = 'residential' OR property_type IS NULL)");
       } else {
-        query += " WHERE property_type = ?";
+        conditions.push("property_type = ?");
         queryParams.push(type);
       }
     } else {
       // Default to residential sales properties to ensure backward compatibility
-      query += " WHERE property_type = 'residential' OR property_type IS NULL";
+      conditions.push("(property_type = 'residential' OR property_type IS NULL)");
+    }
+
+    if (status) {
+      if (status.toLowerCase() === "sold") {
+        conditions.push("LOWER(status) = 'sold'");
+      } else if (status.toLowerCase() === "unsold" || status.toLowerCase() === "current") {
+        conditions.push("(status IS NULL OR LOWER(status) != 'sold')");
+      }
+    }
+
+    if (conditions.length > 0) {
+      query += " WHERE " + conditions.join(" AND ");
     }
 
     const [properties] = await pool.query(query, queryParams);

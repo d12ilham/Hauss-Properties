@@ -24,7 +24,17 @@ router.get("/sync", verifyCronKey, syncPropertiesFromFTP);
 router.get("/fix", verifyCronKey, fixPropertiesFromFTP);
 router.get("/", getAllProperties);
 router.get("/sales", (req, res, next) => {
-  Object.defineProperty(req, "query", { value: { type: "residential" }, writable: true });
+  Object.defineProperty(req, "query", {
+    value: { type: "residential", status: "unsold" },
+    writable: true,
+  });
+  getAllProperties(req, res, next);
+});
+router.get("/sold", (req, res, next) => {
+  Object.defineProperty(req, "query", {
+    value: { type: "residential", status: "sold" },
+    writable: true,
+  });
   getAllProperties(req, res, next);
 });
 router.get("/rentals", (req, res, next) => {
