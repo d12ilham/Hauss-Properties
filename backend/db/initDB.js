@@ -108,6 +108,32 @@ async function initializeDatabase() {
       await runQuery(`ALTER TABLE properties ADD COLUMN price_view VARCHAR(255) AFTER video_link`);
       console.log("✅ Auto-migration: Added 'price_view' column to properties table");
     }
+
+    // Auto-migration: Check if 'slug' column exists in existing 'properties' table
+    const slugColCheck = await runQuery(
+      `SELECT 1 FROM information_schema.columns 
+       WHERE table_schema = ? AND table_name = 'properties' AND column_name = 'slug' LIMIT 1`,
+      [process.env.DB_NAME]
+    );
+
+    if (slugColCheck.length === 0) {
+      await runQuery(`ALTER TABLE properties ADD COLUMN slug VARCHAR(255) DEFAULT NULL, ADD INDEX idx_slug (slug)`);
+      console.log("✅ Auto-migration: Added 'slug' column and index to properties table");
+    }
+
+    // Auto-migration: Automatically backfill slugs for any properties missing a slug
+    const missingSlugProps = await runQuery(
+      "SELECT id, property_id, sub_number, street_number, street, suburb, state, postcode FROM properties WHERE slug IS NULL OR slug = ''"
+    );
+    if (missingSlugProps.length > 0) {
+      for (const p of missingSlugProps) {
+        const parts = [p.sub_number, p.street_number, p.street, p.suburb, p.state, p.postcode].filter(Boolean);
+        const generated = parts.join(" ").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+        const finalSlug = generated || p.property_id;
+        await runQuery("UPDATE properties SET slug = ? WHERE id = ?", [finalSlug, p.id]);
+      }
+      console.log(`✅ Auto-migration: Populated slugs for ${missingSlugProps.length} properties`);
+    }
   } catch (err) {
     console.error("Database initialization failed:", err);
     throw err;
