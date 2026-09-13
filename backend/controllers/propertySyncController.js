@@ -273,15 +273,31 @@ export const syncPropertiesFromFTP = async (req, res) => {
         priceViewValue = getValue(property.priceView)?.trim() || null;
       }
 
+      // Generate clean address slug (e.g. 405-moggill-road-indooroopilly-qld-4068)
+      const addressParts = [
+        safeSubNumber,
+        streetNumber,
+        street,
+        suburbValue,
+        state,
+        postcode,
+      ].filter(Boolean);
+      const generatedSlug = addressParts
+        .join(" ")
+        .toLowerCase()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "");
+      const slugValue = generatedSlug || property.uniqueID;
+
       await pool.query(
         `INSERT INTO properties (
           property_id, property_name, description, lifestyle_assets, sub_number,
           street_number, street, suburb, state, postcode, country,
           listing_agent, contact_agent, agents, land_area, land_area_unit, inspection_times,
           features, eco_friendly, gallery, property_documents, mod_time,
-          property_type, category, status, video_link, price_view,
+          property_type, category, status, video_link, price_view, slug,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           property_name = VALUES(property_name),
           description = VALUES(description),
@@ -308,6 +324,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           status = VALUES(status),
           video_link = VALUES(video_link),
           price_view = VALUES(price_view),
+          slug = VALUES(slug),
           updated_at = NOW()`,
         [
           property.uniqueID,
@@ -337,6 +354,7 @@ export const syncPropertiesFromFTP = async (req, res) => {
           statusValue,
           videoLinkUrl,
           priceViewValue,
+          slugValue,
         ]
       );
 

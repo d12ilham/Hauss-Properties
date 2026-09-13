@@ -60,10 +60,12 @@ async function initializeDatabase() {
     eco_friendly JSON,
     gallery JSON,
     property_documents JSON,
+    slug VARCHAR(255) DEFAULT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     mod_time DATETIME,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-      INDEX idx_property_id (property_id)
+      INDEX idx_property_id (property_id),
+      INDEX idx_slug (slug)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
   `,
     },

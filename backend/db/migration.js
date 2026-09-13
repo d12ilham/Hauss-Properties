@@ -72,9 +72,30 @@ async function migrate() {
     const [resultType] = await pool.query("UPDATE properties SET property_type = 'residential' WHERE property_type IS NULL");
     console.log(`Updated ${resultType.affectedRows} properties to 'residential' property_type.`);
 
-    // 7. Set existing NULL status to 'current'
-    const [resultStatus] = await pool.query("UPDATE properties SET status = 'current' WHERE status IS NULL");
-    console.log(`Updated ${resultStatus.affectedRows} properties to 'current' status.`);
+    // 8. Add slug column if it doesn't exist
+    const [colsSlug] = await pool.query(
+      `SELECT column_name FROM information_schema.columns 
+       WHERE table_schema = ? AND table_name = 'properties' AND column_name = 'slug'`,
+      [process.env.DB_NAME]
+    );
+    if (colsSlug.length === 0) {
+      await pool.query("ALTER TABLE properties ADD COLUMN slug VARCHAR(255) DEFAULT NULL, ADD INDEX idx_slug (slug)");
+      console.log("Added 'slug' column and index to properties table.");
+    }
+
+    // 9. Backfill slugs for existing properties
+    const [existingRows] = await pool.query(
+      "SELECT id, property_id, sub_number, street_number, street, suburb, state, postcode FROM properties WHERE slug IS NULL OR slug = ''"
+    );
+    let updatedSlugs = 0;
+    for (const p of existingRows) {
+      const parts = [p.sub_number, p.street_number, p.street, p.suburb, p.state, p.postcode].filter(Boolean);
+      const generated = parts.join(" ").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+      const finalSlug = generated || p.property_id;
+      await pool.query("UPDATE properties SET slug = ? WHERE id = ?", [finalSlug, p.id]);
+      updatedSlugs++;
+    }
+    console.log(`Backfilled slugs for ${updatedSlugs} properties.`);
 
   } catch (err) {
     console.error("Migration failed:", err);

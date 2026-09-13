@@ -3,7 +3,26 @@ import QRCode from "qrcode";
 import fs from "fs";
 import path from "path";
 
-// Get all properties
+// Helper to generate clean address slug
+export const generateAddressSlug = (property) => {
+  if (property.slug) return property.slug;
+  const parts = [
+    property.sub_number,
+    property.street_number,
+    property.street,
+    property.suburb,
+    property.state,
+    property.postcode,
+  ].filter(Boolean);
+  const clean = parts
+    .join(" ")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return clean || property.property_id;
+};
+
+// Get all properties (latest first)
 export const getAllProperties = async (req, res) => {
   try {
     const { type, status } = req.query;
@@ -35,17 +54,22 @@ export const getAllProperties = async (req, res) => {
       query += " WHERE " + conditions.join(" AND ");
     }
 
+    // Always sort by latest first
+    query += " ORDER BY COALESCE(mod_time, created_at) DESC, id DESC";
+
     const [properties] = await pool.query(query, queryParams);
 
     const enhancedProperties = await Promise.all(
       properties.map(async (property) => {
+        const slug = property.slug || generateAddressSlug(property);
         const frontendUrl = process.env.FRONTEND_URL || "";
         const primaryFrontendUrl = frontendUrl.split(",")[0].trim();
-        const qrLink = `${primaryFrontendUrl}/property/${property.property_id}`;
+        const qrLink = `${primaryFrontendUrl}/property/${slug}`;
         const qrCodeDataUrl = await QRCode.toDataURL(qrLink);
 
         return {
           ...property,
+          slug,
           qr_code: qrCodeDataUrl, // Add QR as base64 image
         };
       })
@@ -61,13 +85,28 @@ export const getAllProperties = async (req, res) => {
   }
 };
 
-// Get single property
+// Get single property (supports property_id OR address slug)
 export const getProperty = async (req, res) => {
   try {
-    const [property] = await pool.query(
-      "SELECT * FROM properties WHERE property_id = ?",
-      [req.params.id]
+    const identifier = req.params.id;
+    let [property] = await pool.query(
+      "SELECT * FROM properties WHERE property_id = ? OR slug = ?",
+      [identifier, identifier]
     );
+
+    // Fallback: if not found by direct match, compare computed address slug
+    if (property.length === 0) {
+      const [all] = await pool.query("SELECT * FROM properties");
+      const matched = all.find((p) => {
+        const computed = p.slug || generateAddressSlug(p);
+        return computed === identifier;
+      });
+      if (matched) {
+        property = [matched];
+        // Cache computed slug back to DB asynchronously
+        pool.query("UPDATE properties SET slug = ? WHERE id = ?", [identifier, matched.id]).catch(() => {});
+      }
+    }
 
     if (property.length === 0) {
       return res.status(404).json({
@@ -76,9 +115,14 @@ export const getProperty = async (req, res) => {
       });
     }
 
+    const prop = {
+      ...property[0],
+      slug: property[0].slug || generateAddressSlug(property[0]),
+    };
+
     res.status(200).json({
       status: "success",
-      data: { property: property[0] },
+      data: { property: prop },
     });
   } catch (err) {
     res.status(500).json({ status: "error", message: err.message });
