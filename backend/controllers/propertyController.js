@@ -54,8 +54,8 @@ export const getAllProperties = async (req, res) => {
       query += " WHERE " + conditions.join(" AND ");
     }
 
-    // Always sort by latest first
-    query += " ORDER BY COALESCE(mod_time, created_at) DESC, id DESC";
+    // Always sort by latest published first
+    query += " ORDER BY COALESCE(created_at, mod_time) DESC, id DESC";
 
     const [properties] = await pool.query(query, queryParams);
 
