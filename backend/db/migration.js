@@ -1,3 +1,4 @@
+import "dotenv/config";
 import pool from "./connection.js";
 
 async function migrate() {
@@ -66,6 +67,17 @@ async function migrate() {
     if (colsCategory.length === 0) {
       await pool.query("ALTER TABLE properties ADD COLUMN category VARCHAR(100) DEFAULT NULL");
       console.log("Added 'category' column to properties table.");
+    }
+
+    // Add price_view column if it doesn't exist
+    const [colsPriceView] = await pool.query(
+      `SELECT column_name FROM information_schema.columns 
+       WHERE table_schema = ? AND table_name = 'properties' AND column_name = 'price_view'`,
+      [process.env.DB_NAME]
+    );
+    if (colsPriceView.length === 0) {
+      await pool.query("ALTER TABLE properties ADD COLUMN price_view VARCHAR(255) DEFAULT NULL");
+      console.log("Added 'price_view' column to properties table.");
     }
 
     // 6. Set existing NULL property_type to 'residential'

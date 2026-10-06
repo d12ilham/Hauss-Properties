@@ -273,6 +273,65 @@ export const syncPropertiesFromFTP = async (req, res) => {
         priceViewValue = getValue(property.priceView)?.trim() || null;
       }
 
+      // Extract auction attribute / tag
+      let isAuctionValue = null;
+      let auctionDateValue = null;
+
+      // 1. Check authority tag e.g. <authority value="auction"/>
+      const authorityValue =
+        (typeof property.authority === "object"
+          ? property.authority?.value || property.authority?.$?.value || property.authority?._
+          : property.authority) || "";
+      if (authorityValue && String(authorityValue).toLowerCase() === "auction") {
+        isAuctionValue = 1;
+      }
+
+      // 2. Check auction tag e.g. <auction date="2026-10-10T10:00"/>
+      if (property.auction) {
+        isAuctionValue = 1;
+        if (typeof property.auction === "object") {
+          auctionDateValue =
+            property.auction.date ||
+            property.auction.$?.date ||
+            property.auction.auctionDate ||
+            property.auction._ ||
+            null;
+        } else if (typeof property.auction === "string") {
+          auctionDateValue = property.auction.trim() || null;
+        }
+      }
+
+      // 3. Check auctionDate tag
+      if (property.auctionDate) {
+        isAuctionValue = 1;
+        auctionDateValue =
+          auctionDateValue || getValue(property.auctionDate)?.trim() || null;
+      }
+
+      // 4. Check priceView e.g. <priceView>AUCTION</priceView>
+      if (priceViewValue && /auction/i.test(priceViewValue)) {
+        isAuctionValue = 1;
+        if (!auctionDateValue) {
+          const matchDate = priceViewValue
+            .replace(/^(?:onsite\s+auction|auction\s*(?:onsite|on-site)?)\s*[:\-–]?\s*/i, "")
+            .trim();
+          if (matchDate) {
+            auctionDateValue = matchDate;
+          }
+        }
+      }
+
+      // 5. Fallback: Check description for auction date if still not found
+      if (isAuctionValue && !auctionDateValue && description) {
+        const descText = typeof description === "string" ? description : getValue(description) || "";
+        const descMatch = descText.match(
+          /(?:onsite\s+auction|auction)\s*[:\-–]?\s*([A-Za-z]+,?\s*\d{1,2}(?:st|nd|rd|th)?\s+[A-Za-z]+(?:\s+(?:at\s+)?|\s*[:,\-–]\s*|\s+)\d{1,2}:\d{2}\s*(?:am|pm)?)/i
+        );
+        if (descMatch && descMatch[1]) {
+          auctionDateValue = descMatch[1].trim();
+        }
+      }
+
       // Generate clean address slug (e.g. 405-moggill-road-indooroopilly-qld-4068)
       const addressParts = [
         safeSubNumber,
@@ -296,8 +355,9 @@ export const syncPropertiesFromFTP = async (req, res) => {
           listing_agent, contact_agent, agents, land_area, land_area_unit, inspection_times,
           features, eco_friendly, gallery, property_documents, mod_time,
           property_type, category, status, video_link, price_view, slug,
+          auction, auction_date,
           created_at, updated_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())
         ON DUPLICATE KEY UPDATE
           property_name = VALUES(property_name),
           description = VALUES(description),
@@ -325,6 +385,8 @@ export const syncPropertiesFromFTP = async (req, res) => {
           video_link = VALUES(video_link),
           price_view = VALUES(price_view),
           slug = VALUES(slug),
+          auction = VALUES(auction),
+          auction_date = VALUES(auction_date),
           updated_at = NOW()`,
         [
           property.uniqueID,
@@ -355,6 +417,8 @@ export const syncPropertiesFromFTP = async (req, res) => {
           videoLinkUrl,
           priceViewValue,
           slugValue,
+          isAuctionValue,
+          auctionDateValue,
         ]
       );
 
@@ -370,6 +434,8 @@ export const syncPropertiesFromFTP = async (req, res) => {
         category: categoryValue,
         status: statusValue,
         video_link: videoLinkUrl,
+        auction: isAuctionValue,
+        auction_date: auctionDateValue,
       });
     }
 
