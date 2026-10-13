@@ -241,7 +241,14 @@ export const syncPropertiesFromFTP = async (req, res) => {
       }
 
       // Extract status attribute (e.g. status="withdrawn" or status="current")
-      const statusValue = property.status || "current";
+      let statusValue = "current";
+      if (typeof property.status === "string" && property.status.trim()) {
+        statusValue = property.status.trim();
+      } else if (property.$?.status) {
+        statusValue = String(property.$.status).trim();
+      } else if (property.status?._) {
+        statusValue = String(property.status._).trim();
+      }
 
       // Extract category attribute (e.g. name="House" or name="Unit")
       let categoryValue = null;

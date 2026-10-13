@@ -38,7 +38,10 @@ router.get("/sold", (req, res, next) => {
   getAllProperties(req, res, next);
 });
 router.get("/rentals", (req, res, next) => {
-  Object.defineProperty(req, "query", { value: { type: "rental" }, writable: true });
+  Object.defineProperty(req, "query", {
+    value: { type: "rental", status: "current" },
+    writable: true,
+  });
   getAllProperties(req, res, next);
 });
 router.get("/commercial", (req, res, next) => {
