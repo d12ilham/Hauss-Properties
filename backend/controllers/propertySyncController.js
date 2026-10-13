@@ -353,7 +353,18 @@ export const syncPropertiesFromFTP = async (req, res) => {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
-      const slugValue = generatedSlug || property.uniqueID;
+      let slugValue = generatedSlug || property.uniqueID;
+
+      // Disambiguate duplicate slugs across different property records (e.g. rental vs residential at same address)
+      if (slugValue) {
+        const [existingSlugRows] = await pool.query(
+          "SELECT property_id, property_type FROM properties WHERE slug = ? AND property_id != ?",
+          [slugValue, property.uniqueID]
+        );
+        if (existingSlugRows.length > 0) {
+          slugValue = `${slugValue}-${propertyType === "rental" ? "rent" : propertyType}`;
+        }
+      }
 
       await pool.query(
         `INSERT INTO properties (

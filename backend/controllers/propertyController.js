@@ -96,18 +96,43 @@ export const getAllProperties = async (req, res) => {
 export const getProperty = async (req, res) => {
   try {
     const identifier = req.params.id;
-    let [property] = await pool.query(
-      "SELECT * FROM properties WHERE property_id = ? OR slug = ?",
-      [identifier, identifier]
-    );
+    const { type } = req.query;
+
+    let query = "SELECT * FROM properties WHERE (property_id = ? OR slug = ?)";
+    const queryParams = [identifier, identifier];
+
+    if (type) {
+      query += " AND property_type = ?";
+      queryParams.push(type);
+    }
+
+    // Disambiguate duplicate slugs: prioritize active listings, current status, then newest created
+    query += ` ORDER BY 
+      (active = 1 OR active IS NULL) DESC, 
+      (LOWER(status) = 'current') DESC, 
+      COALESCE(created_at, mod_time) DESC, 
+      id DESC`;
+
+    let [property] = await pool.query(query, queryParams);
 
     // Fallback: if not found by direct match, compare computed address slug
     if (property.length === 0) {
       const [all] = await pool.query("SELECT * FROM properties");
-      const matched = all.find((p) => {
-        const computed = p.slug || generateAddressSlug(p);
-        return computed === identifier;
-      });
+      const matched = all
+        .filter((p) => !type || p.property_type === type)
+        .sort((a, b) => {
+          const aActive = a.active !== 0 ? 1 : 0;
+          const bActive = b.active !== 0 ? 1 : 0;
+          if (bActive !== aActive) return bActive - aActive;
+          const aCurrent = a.status && a.status.toLowerCase() === "current" ? 1 : 0;
+          const bCurrent = b.status && b.status.toLowerCase() === "current" ? 1 : 0;
+          if (bCurrent !== aCurrent) return bCurrent - aCurrent;
+          return (b.id || 0) - (a.id || 0);
+        })
+        .find((p) => {
+          const computed = p.slug || generateAddressSlug(p);
+          return computed === identifier;
+        });
       if (matched) {
         property = [matched];
         // Cache computed slug back to DB asynchronously
