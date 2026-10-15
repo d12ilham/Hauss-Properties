@@ -25,7 +25,7 @@ router.get("/fix", verifyCronKey, fixPropertiesFromFTP);
 router.get("/", getAllProperties);
 router.get("/sales", (req, res, next) => {
   Object.defineProperty(req, "query", {
-    value: { type: "residential", status: "unsold" },
+    value: { type: "residential", status: "current" },
     writable: true,
   });
   getAllProperties(req, res, next);

@@ -45,15 +45,13 @@ export const getAllProperties = async (req, res) => {
     if (status) {
       if (status.toLowerCase() === "sold") {
         conditions.push("LOWER(status) = 'sold'");
-      } else if (status.toLowerCase() === "unsold") {
-        conditions.push("(status IS NULL OR LOWER(status) != 'sold')");
-      } else if (status.toLowerCase() === "current") {
+      } else if (status.toLowerCase() === "current" || status.toLowerCase() === "unsold") {
         conditions.push("LOWER(status) = 'current'");
       } else {
         conditions.push("LOWER(status) = ?");
         queryParams.push(status.toLowerCase());
       }
-    } else if (type === "rental") {
+    } else if (type === "rental" || type === "residential") {
       conditions.push("LOWER(status) = 'current'");
     }
 
